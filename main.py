@@ -13,6 +13,7 @@ from pyscript import when
 dataframe = None
 holdings_by_period = {"opening": {}, "closing": {}}
 january_included_rows = set()
+JANUARY_REVIEW_CUTOFF = 13
 isin_pattern = re.compile(r"\b[A-Z]{2}[A-Z0-9]{9}\d\b")
 number_pattern = re.compile(r"^[+-]?\d[\d'’.,]*$")
 fiat_currencies = {
@@ -427,6 +428,8 @@ def render_income_report():
     january_count = 0
     selected_january_count = 0
     unsupported_january_count = 0
+    unparsed_date_count = 0
+    january_after_cutoff_count = 0
     date_column = columns.get("datum")
     symbol_column = columns.get("symbol")
     name_column = columns.get("name")
@@ -435,13 +438,19 @@ def render_income_report():
         transaction_type = str(transaction[columns["transaktionen"]]).strip()
         transaction_date = parse_transaction_date(transaction[date_column])
         if transaction_date is None:
+            unparsed_date_count += 1
             if categorize_income_transaction(transaction_type):
                 invalid_date_count += 1
             continue
 
         category = categorize_income_transaction(transaction_type)
         is_tax_year_transaction = transaction_date.year == 2025
-        is_january_review = transaction_date.year == 2026 and transaction_date.month == 1
+        is_january_2026 = transaction_date.year == 2026 and transaction_date.month == 1
+        is_january_review = (
+            is_january_2026 and transaction_date.day <= JANUARY_REVIEW_CUTOFF
+        )
+        if is_january_2026 and not is_january_review:
+            january_after_cutoff_count += 1
         if is_january_review:
             january_count += 1
             if category is None:
@@ -520,11 +529,20 @@ def render_income_report():
     message = f"{included_count} als Ertrag kategorisierte Buchung(en) aus 2025 und Januar 2026 gefunden. "
     if january_count:
         message += (
-            f"{january_count} Januar-Transaktion(en) werden separat angezeigt; "
+            f"{january_count} Transaktion(en) vom 1.–{JANUARY_REVIEW_CUTOFF}. Januar "
+            "werden separat angezeigt; "
             f"{selected_january_count} davon sind ausgewählt und in den Summen. "
         )
     else:
-        message += "Keine Transaktionen mit Datum im Januar 2026 gefunden. "
+        message += (
+            f"Keine Transaktionen vom 1.–{JANUARY_REVIEW_CUTOFF}. Januar 2026 "
+            "gefunden. "
+        )
+    if january_after_cutoff_count:
+        message += (
+            f"{january_after_cutoff_count} weitere Januar-Transaktion(en) nach dem "
+            f"{JANUARY_REVIEW_CUTOFF}. Januar sind nicht im Prüffenster. "
+        )
     if unsupported_january_count:
         message += (
             f"{unsupported_january_count} Januar-Transaktion(en) sind nicht als "
@@ -536,6 +554,12 @@ def render_income_report():
             f" {invalid_date_count} passende Buchung(en) hatten ein nicht "
             "erkennbares Datum und wurden nicht zugeordnet."
         )
+    if unparsed_date_count:
+        message += (
+            f" Bei insgesamt {unparsed_date_count} CSV-Zeile(n) konnte das "
+            "Datum nicht gelesen werden; diese Zeilen lassen sich keinem "
+            "Zeitraum zuordnen."
+        )
     if invalid_amount_count:
         message += (
             f" Bei {invalid_amount_count} Buchung(en) war der Nettobetrag "
@@ -544,7 +568,12 @@ def render_income_report():
     set_status(
         "#income-status",
         message,
-        bool(invalid_amount_count or invalid_date_count or unsupported_january_count),
+        bool(
+            invalid_amount_count
+            or invalid_date_count
+            or unsupported_january_count
+            or unparsed_date_count
+        ),
     )
 
 

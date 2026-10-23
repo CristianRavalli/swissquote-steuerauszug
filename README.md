@@ -24,8 +24,8 @@ geladen. Die PDF-Verarbeitung unterstützt Text-PDFs, keine eingescannten PDFs.
 - Bestände aus Anfangs- und End-PDF, zusammengeführt nach ISIN bzw. Währung
 - erkannte Bestandsänderungen
 - Ertragsbuchungen und Summen nach Kategorie und Währung
-- separate Januar-2026-Prüfliste, deren ausgewählte Buchungen in die Summen für
-  2025 einfließen
+- separate Prüfliste für Transaktionen vom 1. bis einschließlich 13. Januar
+  2026; ausgewählte Ertragsbuchungen fließen in die Summen für 2025 ein
 
 Die Kategorisierung ist eine Prüfhilfe und keine automatische steuerliche
 Beurteilung. Prüfe die Zuordnung der Buchungen anhand deiner Unterlagen.
