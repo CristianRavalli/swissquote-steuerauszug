@@ -1,0 +1,7 @@
+# Transaction and account files must stay local.
+*.csv
+*.pdf
+
+# Python cache files.
+__pycache__/
+*.py[cod]
