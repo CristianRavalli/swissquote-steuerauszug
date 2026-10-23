@@ -14,14 +14,16 @@ und Bestands-PDFs im Browser zu prüfen. Die Dateien werden nicht an ein Backend
    ```
 
 3. Öffne <http://localhost:8000> im Browser.
-4. Lade Anfangs- und Endbestands-PDF sowie die Transaktions-CSV hoch.
+4. Lade das PDF mit dem Endbestand des Vorjahres, das PDF mit dem Endbestand
+   des aktuellen Jahres sowie die Transaktions-CSV hoch.
 
 Beim ersten Laden werden PyScript und die Python-Pakete aus dem Internet
 geladen. Die PDF-Verarbeitung unterstützt Text-PDFs, keine eingescannten PDFs.
 
 ## Was die Anwendung aktuell zeigt
 
-- Bestände aus Anfangs- und End-PDF, zusammengeführt nach ISIN bzw. Währung
+- Endbestände des Vorjahres und des aktuellen Jahres, zusammengeführt nach
+  ISIN bzw. Währung
 - erkannte Bestandsänderungen
 - Ertragsbuchungen und Summen nach Kategorie und Währung
 - separate Prüfliste für Transaktionen vom 1. bis einschließlich 13. Januar
