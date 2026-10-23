@@ -16,7 +16,7 @@ und Bestands-PDFs im Browser zu prüfen. Die Dateien werden nicht an ein Backend
 3. Öffne <http://localhost:8000> im Browser.
 4. Lade das PDF mit dem Endbestand des Vorjahres, das PDF mit dem Endbestand
    des aktuellen Jahres sowie die Transaktions-CSV hoch. Für die Prüfung des
-   Steuerjahres 2025 muss die CSV Buchungen vom 1. Januar 2025 bis einschließlich
+   Steuerjahres 2025 muss die CSV Buchungen vom 1. Januar 2025 bis und mit
    13. Januar 2026 enthalten. Lade sie also nicht nur für das Kalenderjahr 2025
    herunter.
 
@@ -29,8 +29,8 @@ geladen. Die PDF-Verarbeitung unterstützt Text-PDFs, keine eingescannten PDFs.
   ISIN bzw. Währung
 - erkannte Bestandsänderungen
 - Ertragsbuchungen und Summen nach Kategorie und Währung
-- separate Prüfliste für Transaktionen vom 1. bis einschließlich 13. Januar
-  2026; ausgewählte Ertragsbuchungen fließen in die Summen für 2025 ein.
+- separate Prüfliste für Transaktionen vom 1. bis und mit 13. Januar
+  2026; ausgewählte Ertragsbuchungen fliessen in die Summen für 2025 ein.
   Buchungen nach dem 13. Januar 2026 werden nicht in dieser Prüfliste angezeigt.
 
 Die Kategorisierung ist eine Prüfhilfe und keine automatische steuerliche
