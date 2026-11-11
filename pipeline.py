@@ -490,15 +490,32 @@ def _lies_krypto(zellen):
 
 
 def extrahiere_pdf_text(rohdaten):
-    """Liest ein PDF mit pypdf im Layout-Modus. Lazy import fuer die Tests."""
+    """Liest ein PDF mit pypdf im Layout-Modus. Lazy import fuer die Tests.
+
+    pypdf meldet bei den Swissquote-PDFs harmlose Warnungen (eingebettete
+    Schriften ohne fontTools, doppelte Woerterbuch-Eintraege, gedrehter
+    Randtext). PyScript zeigt sie unten auf der Seite an; deshalb werden
+    hier nur echte Fehler durchgelassen.
+    """
+    import logging
+    import warnings
     from io import BytesIO
 
     from pypdf import PdfReader
 
-    leser = PdfReader(BytesIO(rohdaten))
-    return "\n".join(
-        seite.extract_text(extraction_mode="layout") or "" for seite in leser.pages
-    )
+    logger = logging.getLogger("pypdf")
+    vorher = logger.level
+    logger.setLevel(logging.ERROR)
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            leser = PdfReader(BytesIO(rohdaten))
+            return "\n".join(
+                seite.extract_text(extraction_mode="layout") or ""
+                for seite in leser.pages
+            )
+    finally:
+        logger.setLevel(vorher)
 
 
 # --- Uebersicht_Transaktionen ------------------------------------------------
