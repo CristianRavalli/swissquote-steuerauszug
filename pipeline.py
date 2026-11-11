@@ -79,12 +79,14 @@ REGEL_SPALTEN = (
     "Zuordnung_Vorjahr",
 )
 
-# Abschnitte des PDF. Nur diese drei gehen in den Stueckzahlen-Abgleich: die
-# Kontokorrent-Salden unter "Liquiditaet" aendern sich durch Zahlungen, Forex
-# und Kartentransaktionen, und genau die werden oben herausgefiltert. Sie
-# werden trotzdem gelesen, weil sie fuer das Wertschriftenverzeichnis gebraucht
-# werden. Die Mappe erfasst sie heute gar nicht.
+# Abschnitte des PDF, aus denen Positionen entstehen. "Liquiditaet" wird als
+# Abschnitt erkannt, damit die Zeilen darunter keinem anderen Abschnitt
+# zugeschlagen werden, ergibt aber keine Positionen: Cash-Konten gehoeren
+# nicht in diesen Abgleich. Das entspricht der Mappe.
 ABSCHNITTE_IM_ABGLEICH = ("Aktien", "Anlagefonds", "Kryptowährungen")
+
+GRUND_OHNE_WAEHRUNG = "Keine Währung (als Storno behandelt)"
+GRUND_BUCHUNGSART = "Buchungsart wird nicht ausgewertet"
 
 ISIN_MUSTER = re.compile(r"\b[A-Z]{2}[A-Z0-9]{9}\d\b")
 ZAHL_MUSTER = re.compile(r"^[+-]?\d[\d'’.,]*%?$")
@@ -268,7 +270,8 @@ def _als_decimal(wert):
 def lies_transaktionen(rohdaten):
     """Entspricht der Abfrage 'transaktionen'.
 
-    Gibt (zeilen, hinweise) zurueck; hinweise zaehlt, was verworfen wurde.
+    Gibt (zeilen, hinweise, verworfen) zurueck: hinweise zaehlt, verworfen
+    enthaelt jede verworfene Zeile mit dem Grund in der Spalte "Grund".
     """
     text = _dekodiere(rohdaten)
     leser = csv.DictReader(io.StringIO(text), delimiter=CSV_TRENNZEICHEN)
@@ -292,12 +295,30 @@ def lies_transaktionen(rohdaten):
         return (zeile.get(quelle) or "").strip()
 
     zeilen = []
+    verworfen = []
     hinweise = {
         "gelesen": 0,
         "ohne_waehrung": 0,
         "hart_gefiltert": 0,
         "datum_unlesbar": 0,
     }
+
+    def verwirf(rohzeile, grund):
+        verworfen.append(
+            {
+                "CSV_Zeile": hinweise["gelesen"] + 1,  # +1 fuer die Kopfzeile
+                "Datum": parse_datum(feld(rohzeile, "Datum")),
+                "Auftrag": feld(rohzeile, "Auftrag #"),
+                "Transaktionen": feld(rohzeile, "Transaktionen"),
+                "Symbol": feld(rohzeile, "Symbol"),
+                "Name": feld(rohzeile, "Name"),
+                "ISIN": feld(rohzeile, "ISIN").upper(),
+                "Anzahl": parse_zahl(feld(rohzeile, "Anzahl")),
+                "Nettobetrag": parse_zahl(feld(rohzeile, "Nettobetrag")),
+                "Waehrung": feld(rohzeile, "Waehrung"),
+                "Grund": grund,
+            }
+        )
 
     for rohzeile in leser:
         hinweise["gelesen"] += 1
@@ -306,11 +327,13 @@ def lies_transaktionen(rohdaten):
             # Schritt "Stornos herausfiltern". Trifft auch nicht stornierte
             # Corporate Actions, deshalb zaehlen wir sie fuer den DQ-Check.
             hinweise["ohne_waehrung"] += 1
+            verwirf(rohzeile, GRUND_OHNE_WAEHRUNG)
             continue
 
         buchungsart = feld(rohzeile, "Transaktionen")
         if buchungsart in HART_GEFILTERTE_BUCHUNGSARTEN:
             hinweise["hart_gefiltert"] += 1
+            verwirf(rohzeile, GRUND_BUCHUNGSART)
             continue
 
         datum = parse_datum(feld(rohzeile, "Datum"))
@@ -343,7 +366,7 @@ def lies_transaktionen(rohdaten):
             }
         )
 
-    return zeilen, hinweise
+    return zeilen, hinweise, verworfen
 
 
 # --- Uebersicht_Anfangsb / Uebersicht_Endb -----------------------------------
@@ -433,8 +456,7 @@ def _lies_positionszeile(zellen, abschnitt):
 
     if abschnitt == "Kryptowährungen":
         return _lies_krypto(zellen)
-    if abschnitt == "Liquidität":
-        return _lies_liquiditaet(zellen)
+    # "Liquiditaet" und alles ohne Abschnitt ergibt keine Position.
     return None
 
 
@@ -459,33 +481,6 @@ def _lies_krypto(zellen):
         "Anzahl": anzahl,
         "Produkt_Name": zellen[index].strip(),
         "Abschnitt": "Kryptowährungen",
-    }
-
-
-def _lies_liquiditaet(zellen):
-    """'CHF | Referenz | Kontokorrent (CHF) | Wert | Kurs | Bewertung | %'
-
-    Die Referenz ist die Kontonummer plus zwei Ziffern und wird verworfen.
-    """
-    code = zellen[0].strip().upper()
-    if not WAEHRUNGSCODE_MUSTER.match(code):
-        return None
-    beschreibung = next(
-        (zelle.strip() for zelle in zellen[1:] if not _ist_zahl(zelle)), ""
-    )
-    if not beschreibung:
-        return None
-    nach_beschreibung = zellen[zellen.index(beschreibung) + 1 :]
-    anzahl = next(
-        (parse_zahl(zelle) for zelle in nach_beschreibung if _ist_zahl(zelle)), None
-    )
-    if anzahl is None:
-        return None
-    return {
-        "Schluessel": code,
-        "Anzahl": anzahl,
-        "Produkt_Name": beschreibung,
-        "Abschnitt": "Liquidität",
     }
 
 
@@ -728,7 +723,7 @@ def dq_checks(abgleich, uebersicht, hinweise=None):
 def auswerten(csv_rohdaten, anfangs_pdf_text, end_pdf_text, regeln=None):
     """Fuehrt die ganze Kette aus und gibt alle Zwischenergebnisse zurueck."""
     regeln = regeln or standard_regeln()
-    zeilen, hinweise = lies_transaktionen(csv_rohdaten)
+    zeilen, hinweise, verworfen = lies_transaktionen(csv_rohdaten)
     anfang, stichtag_anfang = lies_bestand(anfangs_pdf_text, ANFANGSBESTAND)
     ende, stichtag_ende = lies_bestand(end_pdf_text, ENDBESTAND)
 
@@ -741,6 +736,7 @@ def auswerten(csv_rohdaten, anfangs_pdf_text, end_pdf_text, regeln=None):
 
     return {
         "hinweise": hinweise,
+        "verworfene_transaktionen": verworfen,
         "stichtag_anfang": stichtag_anfang,
         "stichtag_ende": stichtag_ende,
         "anfangsbestand": anfang,

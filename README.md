@@ -69,16 +69,34 @@ Jahreszahl im Code:
 
 In den Abgleich gehen nur Buchungen der **Periode** ein.
 
+### Verworfene Buchungen
+
+Zwei Arten von CSV-Zeilen gehen gar nicht in die Auswertung ein. Die
+Anwendung listet sie mit CSV-Zeilennummer und Grund unter «Verworfene
+Buchungen» auf.
+
+- **Keine Währung.** Swissquote lässt die Währung bei stornierten Buchungen
+  leer (Schritt «Stornos herausfiltern» der Mappe). Der Filter trifft aber
+  auch nicht stornierte Corporate Actions. Heute ist das harmlos, ein
+  künftiger Split würde jedoch still verschwinden. Deshalb meldet der
+  Prüfschritt «Zeilen ohne Währung verworfen» diese Zeilen als Hinweis.
+- **Buchungsart wird nicht ausgewertet.** `Zahlung`, `Kartentransaktion`,
+  `Forex-Belastung`, `Forex-Gutschrift`, `Depotgebühren` und
+  `Berichtigung Börsengeb.` ändern keine Stückzahl einer Wertschrift.
+
+Nicht verworfen, aber ohne Wirkung auf den Abgleich sind Buchungen mit
+`Faktor_Menge = 0` (zum Beispiel Dividenden und Zinsen) sowie Buchungen
+ausserhalb der Periode. Sie stehen unter «Transaktionen der Periode».
+
+### Cash-Konten
+
+Der Abschnitt «Liquidität» des PDF wird übersprungen, wie in der Mappe.
+Cash-Konten gehören nicht in den Stückzahlen-Abgleich.
+
 ### Abweichungen von der Mappe
 
-- **Kontokorrent-Salden** werden aus dem Abschnitt «Liquidität» gelesen, die
-  Mappe erfasst sie heute nicht. Sie stehen **nicht** im Abgleich, weil
-  Zahlungen, Forex- und Kartenbuchungen herausgefiltert werden und die
-  Differenz sonst immer von null abweichen würde. Für das
-  Wertschriftenverzeichnis sind sie über «Bestände herunterladen» verfügbar.
-- Zwei zusätzliche Prüfungen: verworfene Zeilen ohne Währung (als Hinweis,
-  weil der Filter auch nicht stornierte Corporate Actions trifft) und nicht
-  lesbare Datumswerte.
+Zwei zusätzliche Prüfungen: verworfene Zeilen ohne Währung (als Hinweis) und
+nicht lesbare Datumswerte.
 
 ### Was die Anwendung nicht liefert
 
@@ -112,5 +130,5 @@ Bestände, Transaktionen und Salden sowie die Kontonummer in den
 Parameter-Vorgaben.
 
 Die Verarbeitung erfolgt lokal im Browser; aus dem Internet geladen werden nur
-PyScript und `pypdf`. Die Kontoreferenz aus dem Liquiditäts-Abschnitt des PDF
-wird beim Parsen übersprungen und nicht exportiert.
+PyScript und `pypdf`. Der Abschnitt «Liquidität» des PDF mit Kontoreferenzen
+und Salden wird beim Parsen übersprungen und nicht exportiert.

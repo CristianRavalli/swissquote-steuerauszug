@@ -82,6 +82,32 @@ TRANSAKTIONEN_ANZEIGE = (
 
 DQ_SPALTEN = ("Test", "Betroffene_Zeilen", "Ergebnis")
 
+VERWORFEN_ANZEIGE = (
+    "CSV_Zeile",
+    "Grund",
+    "Datum",
+    "Transaktionen",
+    "Symbol",
+    "Name",
+    "Anzahl",
+    "Nettobetrag",
+    "Waehrung",
+)
+
+VERWORFEN_SPALTEN = (
+    "CSV_Zeile",
+    "Grund",
+    "Datum",
+    "Auftrag",
+    "Transaktionen",
+    "Symbol",
+    "Name",
+    "ISIN",
+    "Anzahl",
+    "Nettobetrag",
+    "Waehrung",
+)
+
 REGEL_ANZEIGE = pipeline.REGEL_SPALTEN
 
 
@@ -174,6 +200,7 @@ def setze_downloads_aktiv(aktiv):
         "#download-abgleich",
         "#download-bestand",
         "#download-transaktionen",
+        "#download-verworfen",
     ):
         document.querySelector(selector).disabled = not aktiv
 
@@ -230,6 +257,13 @@ def werte_aus():
         TRANSAKTIONEN_ANZEIGE,
         VORSCHAU_ZEILEN,
         "#transaktionen-leer",
+    )
+    rendere_tabelle(
+        "#verworfen",
+        ergebnis["verworfene_transaktionen"],
+        VERWORFEN_ANZEIGE,
+        None,
+        "#verworfen-leer",
     )
     setze_downloads_aktiv(True)
 
@@ -422,6 +456,17 @@ def download_transaktionen(event):
             ergebnis["uebersicht_transaktionen"], TRANSAKTIONEN_SPALTEN
         ),
         f"transaktionen-{_jahr()}.csv",
+    )
+
+
+@when("click", "#download-verworfen")
+def download_verworfen(event):
+    ergebnis = zustand["ergebnis"]
+    if ergebnis is None:
+        return
+    lade_herunter(
+        pipeline.als_csv(ergebnis["verworfene_transaktionen"], VERWORFEN_SPALTEN),
+        f"verworfene-buchungen-{_jahr()}.csv",
     )
 
 

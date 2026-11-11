@@ -303,8 +303,8 @@
           Differenz = Änderung des Bestands minus Mengenänderung aus den
           Transaktionen. Zeilen mit Status „Fehler“ sind hervorgehoben: dort
           erklären die Buchungen die Bestandsänderung nicht vollständig.
-          Kontokorrent-Salden stehen nicht in dieser Tabelle, weil Zahlungen,
-          Forex- und Kartenbuchungen bewusst herausgefiltert werden.
+          Cash-Konten (Abschnitt „Liquidität“ im PDF) werden nicht
+          berücksichtigt.
         </p>
         <div class="tabelle-rahmen">
           <table>
@@ -409,14 +409,52 @@
         <p class="leer" id="transaktionen-leer">Noch keine Auswertung.</p>
       </section>
 
+      <section class="panel" aria-labelledby="verworfen-titel">
+        <h2 id="verworfen-titel">Verworfene Buchungen</h2>
+        <p class="hinweis">
+          Diese CSV-Zeilen gehen gar nicht in die Auswertung ein. Zwei Gründe:
+          <strong>Keine Währung</strong> – Swissquote lässt die Währung bei
+          stornierten Buchungen leer; leider auch bei manchen nicht
+          stornierten Corporate Actions, deshalb lohnt sich ein Blick.
+          <strong>Buchungsart wird nicht ausgewertet</strong> – Zahlungen,
+          Forex, Kartentransaktionen, Depotgebühren und
+          Gebührenberichtigungen ändern keine Stückzahl. Die Zeilennummer
+          bezieht sich auf die CSV, Zeile 1 ist die Kopfzeile.
+        </p>
+        <div class="tabelle-rahmen">
+          <table>
+            <thead>
+              <tr>
+                <th>CSV-Zeile</th>
+                <th>Grund</th>
+                <th>Datum</th>
+                <th>Buchungsart</th>
+                <th>Symbol</th>
+                <th>Name</th>
+                <th>Anzahl</th>
+                <th>Nettobetrag</th>
+                <th>Währung</th>
+              </tr>
+            </thead>
+            <tbody id="verworfen"></tbody>
+          </table>
+        </div>
+        <p class="leer" id="verworfen-leer">Noch keine Auswertung.</p>
+        <div class="aktionen">
+          <button id="download-verworfen" type="button" disabled>
+            Verworfene herunterladen
+          </button>
+        </div>
+      </section>
+
       <section class="panel" aria-labelledby="datenschutz-titel">
         <h2 id="datenschutz-titel">Datenschutz</h2>
         <p class="hinweis">
           PDFs und CSV werden ausschliesslich in deinem Browser verarbeitet und
           an keinen Server übertragen. Beim Laden der Seite werden PyScript und
-          das Paket <code>pypdf</code> aus dem Internet bezogen. Die
-          Kontoreferenz aus dem Liquiditäts-Abschnitt wird gelesen, aber nicht
-          weiterverwendet und nicht exportiert.
+          das Paket <code>pypdf</code> aus dem Internet bezogen. Der
+          Abschnitt „Liquidität“ des PDF mit Kontoreferenzen und Salden wird
+          übersprungen und nicht exportiert.
         </p>
       </section>
     </main>

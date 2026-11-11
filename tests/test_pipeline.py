@@ -47,7 +47,7 @@ class TestZahlenUndDatum(unittest.TestCase):
 
 class TestTransaktionen(unittest.TestCase):
     def setUp(self):
-        self.zeilen, self.hinweise = pipeline.lies_transaktionen(
+        self.zeilen, self.hinweise, self.verworfen = pipeline.lies_transaktionen(
             beispieldaten.beispiel_csv()
         )
 
@@ -57,6 +57,33 @@ class TestTransaktionen(unittest.TestCase):
         self.assertEqual(self.hinweise["hart_gefiltert"], 3)
         self.assertEqual(self.hinweise["datum_unlesbar"], 0)
         self.assertEqual(len(self.zeilen), 9)
+
+    def test_verworfene_zeilen_haben_einen_grund(self):
+        self.assertEqual(len(self.verworfen), 4)
+        nach_grund = {}
+        for zeile in self.verworfen:
+            nach_grund.setdefault(zeile["Grund"], []).append(zeile["Transaktionen"])
+        self.assertEqual(
+            nach_grund[pipeline.GRUND_OHNE_WAEHRUNG], ["Corporate Action"]
+        )
+        self.assertEqual(
+            sorted(nach_grund[pipeline.GRUND_BUCHUNGSART]),
+            ["Berichtigung Börsengeb.", "Depotgebühren", "Kartentransaktion"],
+        )
+
+    def test_verworfene_zeilen_tragen_die_csv_zeilennummer(self):
+        # Zeile 1 ist die Kopfzeile; die Gebuehrenberichtigung steht an
+        # vierter Datenstelle, also in CSV-Zeile 5.
+        berichtigung = next(
+            z for z in self.verworfen if z["Transaktionen"].startswith("Berichtigung")
+        )
+        self.assertEqual(berichtigung["CSV_Zeile"], 5)
+        self.assertEqual(berichtigung["Datum"], date(2025, 7, 5))
+
+    def test_verworfen_plus_ausgewertet_ergibt_alle_zeilen(self):
+        self.assertEqual(
+            len(self.verworfen) + len(self.zeilen), self.hinweise["gelesen"]
+        )
 
     def test_krypto_pseudo_isin_wird_zum_code(self):
         krypto = [z for z in self.zeilen if z["Transaktionen"] == "Crypto Deposit"]
@@ -100,19 +127,15 @@ class TestBestand(unittest.TestCase):
         self.assertEqual(self.stichtag_anfang, date(2024, 12, 31))
         self.assertEqual(self.stichtag_ende, date(2025, 12, 31))
 
-    def test_alle_abschnitte_werden_erkannt(self):
+    def test_abschnitte_mit_positionen(self):
         abschnitte = {position["Abschnitt"] for position in self.anfang}
-        self.assertEqual(
-            abschnitte,
-            {"Liquidität", "Kryptowährungen", "Aktien", "Anlagefonds"},
-        )
+        self.assertEqual(abschnitte, {"Kryptowährungen", "Aktien", "Anlagefonds"})
 
     def test_positionen_im_anfangsbestand(self):
         mengen = _als_dict(self.anfang, "Schluessel", "Anzahl")
         self.assertEqual(
             mengen,
             {
-                "CHF": Decimal("1000.00"),
                 "SOL": Decimal("1.50000000"),
                 "US0000000001": Decimal("10"),
                 "US0000000019": Decimal("4"),
@@ -130,7 +153,7 @@ class TestBestand(unittest.TestCase):
         # Seite 2 nennt "Aktien" und "Liquiditaet" mit Summen. Daraus darf
         # keine Position entstehen.
         self.assertNotIn("", {p["Schluessel"] for p in self.anfang})
-        self.assertEqual(len(self.anfang), 5)
+        self.assertEqual(len(self.anfang), 4)
 
     def test_totalzeilen_werden_uebersprungen(self):
         self.assertFalse(
@@ -140,10 +163,17 @@ class TestBestand(unittest.TestCase):
             )
         )
 
-    def test_liquiditaetsreferenz_wird_nicht_uebernommen(self):
-        konto = next(p for p in self.anfang if p["Schluessel"] == "CHF")
-        self.assertEqual(konto["Produkt_Name"], "Kontokorrent (CHF)")
-        self.assertNotIn("123456789", str(konto))
+    def test_cash_konten_ergeben_keine_positionen(self):
+        # Der Abschnitt Liquiditaet steht im PDF, wird aber uebersprungen.
+        for bestand in (self.anfang, self.ende):
+            self.assertNotIn("CHF", {p["Schluessel"] for p in bestand})
+            self.assertNotIn("Liquidität", {p["Abschnitt"] for p in bestand})
+            self.assertNotIn("123456789", str(bestand))
+
+    def test_zeilen_nach_liquiditaet_landen_im_richtigen_abschnitt(self):
+        # Direkt nach dem Liquiditaets-Abschnitt folgt Krypto. Der Wechsel
+        # muss greifen, sonst fehlt SOL.
+        self.assertIn("SOL", {p["Schluessel"] for p in self.anfang})
 
     def test_fehlender_stichtag_wird_gemeldet(self):
         with self.assertRaises(ValueError) as fehler:
@@ -182,6 +212,9 @@ class TestGesamtlauf(unittest.TestCase):
         self.assertEqual(zinsen["Datum"], date(2026, 1, 1))
         self.assertEqual(zinsen["Zuordnungsdatum"], date(2025, 12, 31))
         self.assertEqual(zinsen["Periode"], "Periode")
+
+    def test_verworfene_transaktionen_im_ergebnis(self):
+        self.assertEqual(len(self.ergebnis["verworfene_transaktionen"]), 4)
 
     def test_liquiditaet_ist_nicht_im_abgleich(self):
         identifier = {z["Identifier"] for z in self.ergebnis["abgleich_bestand"]}
