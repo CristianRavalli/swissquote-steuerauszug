@@ -1,4 +1,4 @@
-# Alternative zum Swissquote-eSteuerauszug für ZHprivateTax
+# Alternative zum Swissquote - eSteuerauszug für ZHprivateTax
 
 Eine Kundenanwendung, die zwei Swissquote-Bestands-PDFs und die
 Transaktions-CSV im Browser gegeneinander prüft: **Anfangsbestand plus
