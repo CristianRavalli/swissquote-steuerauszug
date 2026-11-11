@@ -1,7 +1,20 @@
-# Transaction and account files must stay local.
+# Transaktions- und Kontodaten muessen lokal bleiben.
 *.csv
 *.pdf
+
+# Die Power-Query-Mappe enthaelt geladene Abfrageergebnisse, also echte Daten,
+# sowie die Kontonummer in den Parameter-Vorgaben.
+*.xlsx
+*.xlsm
+*.xlsb
+*.xltx
+~$*
 
 # Python cache files.
 __pycache__/
 *.py[cod]
+.venv/
+venv/
+
+# macOS
+.DS_Store

@@ -5,69 +5,138 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta
       name="description"
-      content="Swissquote-Transaktions-CSV lokal im Browser anzeigen und exportieren."
+      content="Swissquote-Bestands-PDFs und Transaktions-CSV lokal im Browser abgleichen."
     />
-    <title>Swissquote CSV-Auszug</title>
+    <title>Swissquote-Steuerauszug</title>
     <link rel="stylesheet" href="https://pyscript.net/releases/2024.1.1/core.css" />
     <script
       type="module"
       src="https://pyscript.net/releases/2024.1.1/core.js"
     ></script>
     <py-config>
-      packages = ["pandas", "pypdf"]
+      packages = ["pypdf"]
+      [[fetch]]
+      files = ["./pipeline.py"]
     </py-config>
     <style>
       :root {
-        color-scheme: light;
+        color-scheme: light dark;
+        --flaeche: #ffffff;
+        --hintergrund: #f7f8fa;
+        --text: #202124;
+        --gedaempft: #5f6368;
+        --rand: #e0e3e7;
+        --kopf: #f1f3f5;
+        --akzent: #164b8e;
+        --fehler: #b3261e;
+        --fehler-flaeche: #fdeceb;
+        --hinweis: #8a5300;
+        --hinweis-flaeche: #fdf3e2;
+        --ok: #1d6b3f;
         font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
           sans-serif;
-        color: #202124;
-        background: #f7f8fa;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --flaeche: #1f2124;
+          --hintergrund: #16171a;
+          --text: #e8eaed;
+          --gedaempft: #9aa0a6;
+          --rand: #35383d;
+          --kopf: #2a2d31;
+          --akzent: #8ab4f8;
+          --fehler: #f2b8b5;
+          --fehler-flaeche: #3b2220;
+          --hinweis: #f3c26b;
+          --hinweis-flaeche: #352a16;
+          --ok: #81c995;
+        }
       }
 
       body {
         margin: 0;
+        background: var(--hintergrund);
+        color: var(--text);
       }
 
       main {
-        width: min(100% - 2rem, 960px);
-        margin: 3rem auto;
+        width: min(100% - 2rem, 1100px);
+        margin: 2.5rem auto 4rem;
       }
 
       h1 {
+        margin-bottom: 0.25rem;
+      }
+
+      h2 {
+        margin-top: 0;
+      }
+
+      h3 {
         margin-bottom: 0.5rem;
+        font-size: 1rem;
       }
 
       .intro,
-      .privacy-note,
-      #status {
-        color: #5f6368;
+      .hinweis,
+      .status {
+        color: var(--gedaempft);
       }
 
       .panel {
         margin-top: 1.5rem;
-        padding: 1.5rem;
-        border: 1px solid #e0e3e7;
+        padding: 1.25rem 1.5rem 1.5rem;
+        border: 1px solid var(--rand);
         border-radius: 0.75rem;
-        background: #fff;
+        background: var(--flaeche);
       }
 
-      .controls {
+      .felder {
+        display: grid;
+        gap: 1rem;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      }
+
+      .feld {
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+        font-size: 0.9rem;
+      }
+
+      .feld span {
+        font-weight: 600;
+      }
+
+      .aktionen {
         display: flex;
         flex-wrap: wrap;
-        align-items: center;
         gap: 0.75rem;
+        margin-top: 1rem;
+      }
+
+      input[type="file"] {
+        font: inherit;
+        color: var(--text);
       }
 
       input::file-selector-button,
       button {
-        padding: 0.65rem 1rem;
+        padding: 0.6rem 1rem;
         border: 0;
         border-radius: 0.4rem;
-        background: #164b8e;
+        background: var(--akzent);
         color: #fff;
         font: inherit;
         cursor: pointer;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        input::file-selector-button,
+        button {
+          color: #10233f;
+        }
       }
 
       input::file-selector-button {
@@ -79,16 +148,31 @@
         cursor: not-allowed;
       }
 
-      #status {
+      .status {
         min-height: 1.5em;
-        margin-bottom: 0;
+        margin: 1rem 0 0;
       }
 
-      #status[data-error="true"] {
-        color: #b3261e;
+      .status[data-art="fehler"] {
+        color: var(--fehler);
       }
 
-      .table-wrap {
+      .stichtage {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1.5rem;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        font-size: 0.9rem;
+      }
+
+      .stichtage strong {
+        display: block;
+        font-size: 1.1rem;
+      }
+
+      .tabelle-rahmen {
         overflow-x: auto;
       }
 
@@ -96,179 +180,244 @@
         width: 100%;
         border-collapse: collapse;
         text-align: left;
-        font-size: 0.9rem;
+        font-size: 0.85rem;
       }
 
       th,
       td {
-        padding: 0.65rem;
-        border-bottom: 1px solid #e0e3e7;
+        padding: 0.55rem 0.65rem;
+        border-bottom: 1px solid var(--rand);
         white-space: nowrap;
       }
 
       th {
-        background: #f1f3f5;
+        background: var(--kopf);
+        position: sticky;
+        top: 0;
       }
 
-      .privacy-note {
-        font-size: 0.9rem;
+      td.zahl {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
       }
 
-      .section-help {
-        color: #5f6368;
+      tr[data-status="Fehler"] {
+        background: var(--fehler-flaeche);
+      }
+
+      tr[data-status="Hinweis"] {
+        background: var(--hinweis-flaeche);
+      }
+
+      td.ergebnis-OK {
+        color: var(--ok);
+        font-weight: 600;
+      }
+
+      td.ergebnis-Fehler {
+        color: var(--fehler);
+        font-weight: 600;
+      }
+
+      td.ergebnis-Hinweis {
+        color: var(--hinweis);
+        font-weight: 600;
+      }
+
+      .hinweis {
+        font-size: 0.85rem;
         line-height: 1.5;
       }
 
-      .holdings-actions {
-        margin-top: 1rem;
+      .leer {
+        padding: 0.75rem 0;
+        color: var(--gedaempft);
+        font-size: 0.9rem;
       }
     </style>
   </head>
   <body>
     <main>
-      <h1>Swissquote-Transaktionen</h1>
+      <h1>Swissquote-Steuerauszug</h1>
       <p class="intro">
-        Bestände zum Jahresanfang und Jahresende vergleichen und die
-        Transaktions-CSV lokal prüfen.
+        Bestands-PDFs und Transaktions-CSV lokal im Browser abgleichen:
+        Anfangsbestand plus Transaktionen der Periode muss den Endbestand
+        ergeben. Die Dateien verlassen deinen Rechner nicht.
       </p>
 
-      <section class="panel" aria-labelledby="holdings-heading">
-        <h2 id="holdings-heading">Bestands-PDFs hochladen</h2>
-        <p class="section-help">
-          Wähle den PDF-Auszug für den Jahresanfang und den für das Jahresende.
-          Die Dateien werden lokal im Browser ausgelesen. Aktien und
-          Anlagefonds werden über die ISIN verglichen; bei Liquidität und
-          Kryptowährungen dient das Währungskürzel als Kennung.
-          Wenn die PDFs eine Textschicht haben, erscheinen die erkannten
-          Positionen unten. Für Ticker-Namen kann zusätzlich die
-          Transaktions-CSV geladen werden; die Zuordnung erfolgt über die ISIN.
-        </p>
-        <div class="controls">
-          <label>
-            Anfangsbestand
-            <input id="opening-pdf" type="file" accept=".pdf,application/pdf" />
+      <section class="panel" aria-labelledby="upload-titel">
+        <h2 id="upload-titel">Dateien laden</h2>
+        <div class="felder">
+          <label class="feld">
+            <span>Bestands-PDF Anfang</span>
+            <input id="anfang-pdf" type="file" accept=".pdf,application/pdf" />
           </label>
-          <label>
-            Endbestand
-            <input id="closing-pdf" type="file" accept=".pdf,application/pdf" />
+          <label class="feld">
+            <span>Bestands-PDF Ende</span>
+            <input id="ende-pdf" type="file" accept=".pdf,application/pdf" />
+          </label>
+          <label class="feld">
+            <span>Transaktions-CSV</span>
+            <input id="csv-datei" type="file" accept=".csv,text/csv" />
           </label>
         </div>
-        <p id="holdings-status" role="status" aria-live="polite">
-          Bitte wähle die beiden Bestands-PDFs aus.
+        <p class="status" id="status" role="status" aria-live="polite">
+          PyScript wird geladen …
         </p>
-        <div class="table-wrap">
+        <p class="hinweis">
+          Die beiden PDFs sind die Auszüge „Portfolio-Wertentwicklung“. Die
+          Stichtage liest die Anwendung aus dem Titel der PDFs, du musst kein
+          Steuerjahr einstellen. Die CSV muss alle Buchungen zwischen den
+          beiden Stichtagen enthalten, inklusive der Nachbuchungen im Januar
+          des Folgejahres.
+        </p>
+      </section>
+
+      <section class="panel" aria-labelledby="stichtage-titel">
+        <h2 id="stichtage-titel">Periode</h2>
+        <ul class="stichtage" id="stichtage">
+          <li>Noch keine PDFs geladen.</li>
+        </ul>
+      </section>
+
+      <section class="panel" aria-labelledby="dq-titel">
+        <h2 id="dq-titel">Datenqualität</h2>
+        <div class="tabelle-rahmen">
           <table>
             <thead>
               <tr>
-                <th>Art</th>
-                <th>Ticker / Wertpapier / Währung</th>
-                <th>ISIN</th>
-                <th>Bestand / Wert Anfang</th>
-                <th>Bestand / Wert Ende</th>
-                <th>Änderung</th>
+                <th>Test</th>
+                <th>Betroffene Zeilen</th>
+                <th>Ergebnis</th>
               </tr>
             </thead>
-            <tbody id="holdings-body"></tbody>
+            <tbody id="dq-checks"></tbody>
           </table>
         </div>
-        <div class="controls holdings-actions">
-          <button id="download-holdings" type="button" disabled>
-            Erkannte Bestände herunterladen
+        <p class="leer" id="dq-leer">Noch keine Auswertung.</p>
+      </section>
+
+      <section class="panel" aria-labelledby="abgleich-titel">
+        <h2 id="abgleich-titel">Abgleich Bestand gegen Transaktionen</h2>
+        <p class="hinweis">
+          Differenz = Änderung des Bestands minus Mengenänderung aus den
+          Transaktionen. Zeilen mit Status „Fehler“ sind hervorgehoben: dort
+          erklären die Buchungen die Bestandsänderung nicht vollständig.
+          Kontokorrent-Salden stehen nicht in dieser Tabelle, weil Zahlungen,
+          Forex- und Kartenbuchungen bewusst herausgefiltert werden.
+        </p>
+        <div class="tabelle-rahmen">
+          <table>
+            <thead>
+              <tr>
+                <th>Identifier</th>
+                <th>Produkt</th>
+                <th>Abschnitt</th>
+                <th>Anfang</th>
+                <th>Ende</th>
+                <th>Änderung</th>
+                <th>aus Transaktionen</th>
+                <th>Buchungen</th>
+                <th>Differenz</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="abgleich"></tbody>
+          </table>
+        </div>
+        <p class="leer" id="abgleich-leer">Noch keine Auswertung.</p>
+        <div class="aktionen">
+          <button id="download-abgleich" type="button" disabled>
+            Abgleich herunterladen
+          </button>
+          <button id="download-bestand" type="button" disabled>
+            Bestände herunterladen
+          </button>
+          <button id="download-transaktionen" type="button" disabled>
+            Transaktionen herunterladen
           </button>
         </div>
       </section>
 
-      <section class="panel" aria-labelledby="upload-heading">
-        <h2 id="upload-heading">Transaktions-CSV prüfen</h2>
-        <div class="controls">
-          <input id="csv-file" type="file" accept=".csv,text/csv" />
-          <button id="download-button" type="button" disabled>
-            Transaktions-CSV herunterladen
+      <section class="panel" aria-labelledby="regeln-titel">
+        <h2 id="regeln-titel">Regeln je Buchungsart</h2>
+        <p class="hinweis">
+          Entspricht der Tabelle <code>tbl_regeln</code> der Power-Query-Mappe.
+          <strong>Faktor</strong> wirkt auf den Betrag,
+          <strong>Faktor Menge</strong> auf die Stückzahl im Abgleich
+          (0 = die Buchung ändert keine Menge).
+          <strong>Zuordnung Vorjahr</strong> = 1 bedeutet: eine Buchung am
+          Monatsersten zählt zum Vortag. Du kannst die Regeln herunterladen,
+          in Excel ergänzen und wieder hochladen.
+        </p>
+        <div class="felder">
+          <label class="feld">
+            <span>Eigene Regeln laden (CSV)</span>
+            <input id="regeln-datei" type="file" accept=".csv,text/csv" />
+          </label>
+        </div>
+        <div class="aktionen">
+          <button id="download-regeln" type="button">
+            Regeln herunterladen
+          </button>
+          <button id="regeln-zuruecksetzen" type="button">
+            Auf Standard zurücksetzen
           </button>
         </div>
-        <p id="csv-status" role="status" aria-live="polite">
-          Bitte wählen Sie eine CSV-Datei aus.
-        </p>
-        <p class="privacy-note">
-          CSV und PDFs werden in Ihrem Browser verarbeitet und nicht an einen
-          Server übertragen. PyScript und die benötigten Python-Pakete werden
-          beim Laden der Seite aus dem Internet geladen.
-        </p>
-      </section>
-
-      <section class="panel" aria-labelledby="results-heading">
-        <h2 id="results-heading">Transaktionsvorschau (erste 5 Zeilen)</h2>
-        <div id="result-table" class="table-wrap">
-          <p>Noch keine Datei geladen.</p>
-        </div>
-      </section>
-
-      <section class="panel" aria-labelledby="income-heading">
-        <h2 id="income-heading">Erträge zur Prüfung</h2>
-        <p class="section-help">
-          Dividenden, Zinsen auf Einlagen und Wertpapierleihe werden separat
-          angezeigt. Zinsen auf Belastungen stehen als Aufwand in einer eigenen
-          Gruppe. Transaktionen vom 1. bis einschließlich 13. Januar 2026
-          erscheinen separat und werden erst nach deiner Auswahl in die
-          2025-Summen aufgenommen. Spätere Januar-Buchungen bleiben außerhalb
-          dieses Prüffensters. Das Datum ist eine Prüfhilfe, keine automatische
-          steuerliche Zuordnung.
-        </p>
-        <p id="income-status" role="status" aria-live="polite">
-          Lade die Transaktions-CSV, um Buchungen zu prüfen.
-        </p>
-        <h3>Summen für 2025 nach Buchungsart und Währung</h3>
-        <div class="table-wrap">
+        <div class="tabelle-rahmen">
           <table>
             <thead>
               <tr>
                 <th>Buchungsart</th>
-                <th>Währung</th>
-                <th>Summe Nettobetrag</th>
+                <th>Kategorie</th>
+                <th>Faktor</th>
+                <th>Faktor Menge</th>
+                <th>Zuordnung Vorjahr</th>
               </tr>
             </thead>
-            <tbody id="income-totals"></tbody>
+            <tbody id="regeln"></tbody>
           </table>
         </div>
-        <h3>Ertragsbuchungen mit Datum in 2025</h3>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Datum</th>
-                <th>Art</th>
-                <th>Symbol</th>
-                <th>Name</th>
-                <th>Nettobetrag</th>
-                <th>Währung</th>
-              </tr>
-            </thead>
-            <tbody id="income-transactions"></tbody>
-          </table>
-        </div>
-        <h3>1.–13. Januar 2026 – Nachbuchungen prüfen</h3>
-        <p class="section-help">
-          Markiere nur Buchungen, die laut deinen Unterlagen zum Steuerjahr 2025
-          gehören. Nicht markierte Buchungen bleiben außerhalb der 2025-Summen.
-          Buchungen nach dem 13. Januar werden nicht in dieser Liste angezeigt.
+      </section>
+
+      <section class="panel" aria-labelledby="transaktionen-titel">
+        <h2 id="transaktionen-titel">Transaktionen der Periode</h2>
+        <p class="hinweis">
+          Alle Buchungen mit Kategorie, Zuordnungsdatum und Periode. Angezeigt
+          werden die ersten 50 Zeilen; der Download enthält alle.
         </p>
-        <div class="table-wrap">
+        <div class="tabelle-rahmen">
           <table>
             <thead>
               <tr>
-                <th>Für 2025 berücksichtigen</th>
                 <th>Datum</th>
-                <th>Art</th>
-                <th>Ertragskategorie</th>
+                <th>Zuordnung</th>
+                <th>Periode</th>
+                <th>Buchungsart</th>
+                <th>Kategorie</th>
                 <th>Symbol</th>
-                <th>Name</th>
+                <th>Schlüssel</th>
+                <th>Anzahl</th>
                 <th>Nettobetrag</th>
                 <th>Währung</th>
+                <th>Prüfung</th>
               </tr>
             </thead>
-            <tbody id="january-review"></tbody>
+            <tbody id="transaktionen"></tbody>
           </table>
         </div>
+        <p class="leer" id="transaktionen-leer">Noch keine Auswertung.</p>
+      </section>
+
+      <section class="panel" aria-labelledby="datenschutz-titel">
+        <h2 id="datenschutz-titel">Datenschutz</h2>
+        <p class="hinweis">
+          PDFs und CSV werden ausschliesslich in deinem Browser verarbeitet und
+          an keinen Server übertragen. Beim Laden der Seite werden PyScript und
+          das Paket <code>pypdf</code> aus dem Internet bezogen. Die
+          Kontoreferenz aus dem Liquiditäts-Abschnitt wird gelesen, aber nicht
+          weiterverwendet und nicht exportiert.
+        </p>
       </section>
     </main>
 
