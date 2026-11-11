@@ -10,6 +10,14 @@ Die Auswertung ist eine Portierung der Power-Query-Mappe
 `PQ_Swissquote_Steuerauszug.xlsx` und liefert bewusst dieselben Zahlen, damit
 sich beide Wege gegeneinander verifizieren lassen.
 
+## Online nutzen
+
+Die Anwendung läuft ohne Installation unter
+<https://cristianravalli.github.io/swissquote-steuerauszug/>.
+
+Auch dort werden die Dateien nur im Browser gelesen und nicht hochgeladen.
+GitHub Pages liefert lediglich die Seite und den Programmcode aus.
+
 ## Lokal starten
 
 1. Öffne diesen Ordner im Terminal.
