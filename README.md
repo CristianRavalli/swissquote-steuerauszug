@@ -2,7 +2,8 @@
 
 Eine Kundenanwendung, die zwei Swissquote-Bestands-PDFs und die
 Transaktions-CSV im Browser gegeneinander prüft: **Anfangsbestand plus
-Transaktionen der Periode muss den Endbestand ergeben.** Die Dateien werden
+Transaktionen der Periode muss den Endbestand ergeben.** Daraus entsteht die
+Grundlage für das Wertschriftenverzeichnis in ZHprivateTax. Die Dateien werden
 nicht an ein Backend übertragen.
 
 Die Auswertung ist eine Portierung der Power-Query-Mappe
@@ -46,6 +47,7 @@ werden nicht unterstützt.
 | Mengenänderung aus den Buchungen der Periode | `Transaktionen_proSymbol` |
 | Differenz und Status je Position | `Abgleich_Bestand` |
 | Prüfungen | `DQ_Checks` |
+| Grundlage Wertschriftenverzeichnis | – (Stufe B, nicht in der Mappe) |
 
 ### Regeln je Buchungsart
 
@@ -98,10 +100,25 @@ Cash-Konten gehören nicht in den Stückzahlen-Abgleich.
 Zwei zusätzliche Prüfungen: verworfene Zeilen ohne Währung (als Hinweis) und
 nicht lesbare Datumswerte.
 
+## Grundlage für das Wertschriftenverzeichnis (Stufe B)
+
+Zwei Listen, ohne steuerliche Wertung:
+
+- **Wertschriften**: jede Wertschrift mit Bestand am Anfang oder Ende oder
+  mit Buchungen in der Periode, mit Stückzahl am Anfang und am Ende. Eine im
+  Jahr verkaufte Wertschrift steht also mit Ende 0 drin.
+- **Buchungen im Jahr**: jede Buchung der Periode, die zu einer Wertschrift
+  gehört (Kauf, Verkauf, Dividende, Zugang usw.), ausser den Buchungsarten
+  mit Kategorie `Ignorieren`.
+
+Steuerwerte, Erträge und die Verrechnungssteuer-Pflicht kommen aus der
+Kursliste der ESTV. Die Liste zeigt nur, was im Wertschriftenverzeichnis zu
+erfassen ist. Cash-Konten sind nicht enthalten.
+
 ### Was die Anwendung nicht liefert
 
-Valoren-Nummern, offizielle Steuerwerte, Bruttoerträge in CHF zum Tageskurs,
-die Zuordnung zu Kolonne A oder B und die DA-1-Prüfung. Der Abgleich ist eine
+Valoren-Nummern, Steuerwerte, Erträge in CHF, die Zuordnung zu Kolonne A
+oder B und die DA-1-Prüfung. Der Abgleich ist eine
 Prüfhilfe und keine steuerliche Beurteilung.
 
 ## Entwicklung

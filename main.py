@@ -201,6 +201,8 @@ def setze_downloads_aktiv(aktiv):
         "#download-bestand",
         "#download-transaktionen",
         "#download-verworfen",
+        "#download-wv",
+        "#download-wv-buchungen",
     ):
         document.querySelector(selector).disabled = not aktiv
 
@@ -264,6 +266,16 @@ def werte_aus():
         VERWORFEN_ANZEIGE,
         None,
         "#verworfen-leer",
+    )
+    rendere_tabelle(
+        "#wv", ergebnis["wertschriftenverzeichnis"], pipeline.WV_SPALTEN, None, "#wv-leer"
+    )
+    rendere_tabelle(
+        "#wv-buchungen",
+        ergebnis["wv_buchungen"],
+        pipeline.WV_BUCHUNG_SPALTEN,
+        None,
+        "#wv-buchungen-leer",
     )
     setze_downloads_aktiv(True)
 
@@ -467,6 +479,28 @@ def download_verworfen(event):
     lade_herunter(
         pipeline.als_csv(ergebnis["verworfene_transaktionen"], VERWORFEN_SPALTEN),
         f"verworfene-buchungen-{_jahr()}.csv",
+    )
+
+
+@when("click", "#download-wv")
+def download_wv(event):
+    ergebnis = zustand["ergebnis"]
+    if ergebnis is None:
+        return
+    lade_herunter(
+        pipeline.als_csv(ergebnis["wertschriftenverzeichnis"], pipeline.WV_SPALTEN),
+        f"wertschriften-{_jahr()}.csv",
+    )
+
+
+@when("click", "#download-wv-buchungen")
+def download_wv_buchungen(event):
+    ergebnis = zustand["ergebnis"]
+    if ergebnis is None:
+        return
+    lade_herunter(
+        pipeline.als_csv(ergebnis["wv_buchungen"], pipeline.WV_BUCHUNG_SPALTEN),
+        f"wertschriften-buchungen-{_jahr()}.csv",
     )
 
 

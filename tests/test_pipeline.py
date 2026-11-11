@@ -278,6 +278,67 @@ class TestGesamtlauf(unittest.TestCase):
         self.assertIn("Identifier;Differenz;Status", text)
 
 
+class TestWertschriftenverzeichnis(unittest.TestCase):
+    def setUp(self):
+        ergebnis = pipeline.auswerten(
+            beispieldaten.beispiel_csv(),
+            beispieldaten.beispiel_anfangsbestand(),
+            beispieldaten.beispiel_endbestand(),
+        )
+        self.wv = {z["Identifier"]: z for z in ergebnis["wertschriftenverzeichnis"]}
+        self.buchungen = ergebnis["wv_buchungen"]
+
+    def test_alle_wertschriften_ohne_cash(self):
+        self.assertEqual(
+            set(self.wv), {"US0000000001", "US0000000019", "CH0000000013", "SOL"}
+        )
+
+    def test_stueck_anfang_und_ende(self):
+        self.assertEqual(self.wv["US0000000001"]["Stueck_Anfang"], Decimal(10))
+        self.assertEqual(self.wv["US0000000001"]["Stueck_Ende"], Decimal(15))
+        # Verkauft: bleibt mit Ende 0 in der Liste.
+        self.assertEqual(self.wv["US0000000019"]["Stueck_Ende"], Decimal(0))
+
+    def test_buchungen_der_periode(self):
+        arten = [
+            (b["Identifier"], b["Transaktionen"]) for b in self.buchungen
+        ]
+        self.assertEqual(
+            arten,
+            [
+                ("SOL", "Crypto Deposit"),
+                ("SOL", "Crypto Deposit"),
+                ("US0000000001", "Kauf"),
+                ("US0000000001", "Kauf"),
+                ("US0000000001", "Dividende"),
+                ("US0000000019", "Verkauf"),
+            ],
+        )
+        self.assertEqual(self.wv["US0000000001"]["Buchungen"], 3)
+        self.assertEqual(self.wv["CH0000000013"]["Buchungen"], 0)
+
+    def test_ohne_kontozinsen_und_ohne_folgeperiode(self):
+        self.assertTrue(all(b["Identifier"] for b in self.buchungen))
+        self.assertTrue(
+            all(b["Datum"] <= date(2025, 12, 31) for b in self.buchungen)
+        )
+
+    def test_buchung_mit_neuer_wertschrift_erscheint_als_position(self):
+        zeile = (
+            "20-06-2025 00:00:00;800010;Dividende;DELT;DELTA PLC;GB0000000001;5;"
+            "0.00;0.00;0;2.00;1.00;GBP"
+        )
+        rohdaten = beispieldaten.beispiel_csv() + (zeile + "\r\n").encode("latin-1")
+        ergebnis = pipeline.auswerten(
+            rohdaten,
+            beispieldaten.beispiel_anfangsbestand(),
+            beispieldaten.beispiel_endbestand(),
+        )
+        wv = {z["Identifier"]: z for z in ergebnis["wertschriftenverzeichnis"]}
+        self.assertEqual(wv["GB0000000001"]["Bezeichnung"], "DELTA PLC")
+        self.assertEqual(wv["GB0000000001"]["Buchungen"], 1)
+
+
 class TestFehlerfaelle(unittest.TestCase):
     def test_unbekannte_buchungsart_wird_gemeldet(self):
         csv_mit_luecke = beispieldaten.beispiel_csv().decode("latin-1").replace(

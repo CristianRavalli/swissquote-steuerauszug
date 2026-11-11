@@ -357,6 +357,61 @@
         </div>
       </section>
 
+      <section class="panel" aria-labelledby="wv-titel">
+        <h2 id="wv-titel">Grundlage für das Wertschriftenverzeichnis</h2>
+        <p class="hinweis">
+          Alle Wertschriften mit Stückzahl am Anfang und am Ende sowie ihre
+          Buchungen im Jahr. Steuerwerte und Erträge liefert die Kursliste
+          der ESTV; diese Liste sagt dir nur, was du erfassen musst.
+          Cash-Konten sind nicht enthalten.
+        </p>
+        <h3>Wertschriften</h3>
+        <div class="tabelle-rahmen">
+          <table>
+            <thead>
+              <tr>
+                <th>Abschnitt</th>
+                <th>Identifier</th>
+                <th>Bezeichnung</th>
+                <th>Stück Anfang</th>
+                <th>Stück Ende</th>
+                <th>Buchungen</th>
+              </tr>
+            </thead>
+            <tbody id="wv"></tbody>
+          </table>
+        </div>
+        <p class="leer" id="wv-leer">Noch keine Auswertung.</p>
+        <h3>Buchungen im Jahr</h3>
+        <div class="tabelle-rahmen">
+          <table>
+            <thead>
+              <tr>
+                <th>Identifier</th>
+                <th>Bezeichnung</th>
+                <th>Datum</th>
+                <th>Buchungsart</th>
+                <th>Anzahl</th>
+                <th>Stückpreis</th>
+                <th>Kosten</th>
+                <th>Nettobetrag</th>
+                <th>Währung</th>
+              </tr>
+            </thead>
+            <tbody id="wv-buchungen"></tbody>
+          </table>
+        </div>
+        <p class="leer" id="wv-buchungen-leer">Noch keine Auswertung.</p>
+        <div class="aktionen">
+          <button id="download-wv" type="button" disabled>
+            Wertschriften herunterladen
+          </button>
+          <button id="download-wv-buchungen" type="button" disabled>
+            Buchungen herunterladen
+          </button>
+        </div>
+      </section>
+
       <section class="panel" aria-labelledby="regeln-titel">
         <h2 id="regeln-titel">Regeln je Buchungsart</h2>
         <p class="hinweis">

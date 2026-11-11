@@ -11,6 +11,11 @@ Portiert die Power-Query-Abfragen der Mappe PQ_Swissquote_Steuerauszug:
     Abgleich_Bestand         -> abgleich_bestand
     DQ_Checks                -> dq_checks
 
+Stufe B (ohne Gegenstueck in der Mappe):
+
+    wertschriftenverzeichnis -> Positionen und Buchungen als Grundlage fuer
+                                das Wertschriftenverzeichnis
+
 Das Modul kennt kein DOM. Jede Funktion nimmt Bytes, Text oder Listen von
 Dicts und gibt Listen von Dicts zurueck, damit sie ohne Browser testbar ist.
 Mengen werden als Decimal gerechnet, weil Kryptobestaende bis zu acht
@@ -717,6 +722,97 @@ def dq_checks(abgleich, uebersicht, hinweise=None):
     ]
 
 
+# --- Stufe B: Grundlage Wertschriftenverzeichnis ----------------------------
+
+KATEGORIE_IGNORIEREN = "Ignorieren"
+
+WV_SPALTEN = (
+    "Abschnitt",
+    "Identifier",
+    "Bezeichnung",
+    "Stueck_Anfang",
+    "Stueck_Ende",
+    "Buchungen",
+)
+
+WV_BUCHUNG_SPALTEN = (
+    "Identifier",
+    "Bezeichnung",
+    "Datum",
+    "Transaktionen",
+    "Anzahl",
+    "Stueckpreis",
+    "Kosten",
+    "Nettobetrag",
+    "Waehrung",
+)
+
+
+def wertschriftenverzeichnis(bestand, uebersicht):
+    """Grundlage fuer das Wertschriftenverzeichnis, ohne steuerliche Wertung.
+
+    bestand ist das Ergebnis von gesamtuebersicht_bestand. Gibt
+    (positionen, buchungen) zurueck:
+
+    positionen: jede Wertschrift mit Bestand am Anfang oder Ende oder mit
+        Buchungen in der Periode, mit Stueckzahl am Anfang und Ende.
+    buchungen: jede Buchung der Periode, die zu einer Wertschrift gehoert
+        (Kauf, Verkauf, Dividende, Zugang usw.), ohne die als "Ignorieren"
+        eingestuften. Cash-Konten haben keinen Identifier und fehlen.
+    """
+    namen = {}
+    positionen = {}
+    for zeile in bestand:
+        positionen[zeile["Identifier"]] = {
+            "Abschnitt": zeile["Abschnitt"] or "",
+            "Identifier": zeile["Identifier"],
+            "Bezeichnung": zeile["Produkt_Name"] or "",
+            "Stueck_Anfang": zeile["Anfangsbestand"],
+            "Stueck_Ende": zeile["Endbestand"],
+            "Buchungen": 0,
+        }
+        namen[zeile["Identifier"]] = zeile["Produkt_Name"] or ""
+
+    buchungen = []
+    for zeile in uebersicht:
+        identifier = zeile["Schluessel"]
+        if (
+            zeile["Periode"] != "Periode"
+            or not identifier
+            or zeile["Kategorie"] == KATEGORIE_IGNORIEREN
+        ):
+            continue
+        name = namen.get(identifier) or zeile.get("Name") or ""
+        position = positionen.setdefault(
+            identifier,
+            {
+                "Abschnitt": "",
+                "Identifier": identifier,
+                "Bezeichnung": name,
+                "Stueck_Anfang": Decimal(0),
+                "Stueck_Ende": Decimal(0),
+                "Buchungen": 0,
+            },
+        )
+        position["Buchungen"] += 1
+        buchungen.append(
+            {
+                "Identifier": identifier,
+                "Bezeichnung": name,
+                "Datum": zeile["Datum"],
+                "Transaktionen": zeile["Transaktionen"],
+                "Anzahl": zeile["Anzahl"],
+                "Stueckpreis": zeile.get("Stueckpreis"),
+                "Kosten": zeile.get("Kosten"),
+                "Nettobetrag": zeile["Nettobetrag"],
+                "Waehrung": zeile["Waehrung"],
+            }
+        )
+
+    buchungen.sort(key=lambda b: (b["Identifier"], b["Datum"] or _MIN_DATUM))
+    return [positionen[k] for k in sorted(positionen)], buchungen
+
+
 # --- Gesamtlauf --------------------------------------------------------------
 
 
@@ -733,6 +829,7 @@ def auswerten(csv_rohdaten, anfangs_pdf_text, end_pdf_text, regeln=None):
     bestand = gesamtuebersicht_bestand(anfang, ende)
     pro_symbol = transaktionen_pro_symbol(uebersicht)
     abgleich = abgleich_bestand(bestand, pro_symbol)
+    wv, wv_buchungen = wertschriftenverzeichnis(bestand, uebersicht)
 
     return {
         "hinweise": hinweise,
@@ -746,6 +843,8 @@ def auswerten(csv_rohdaten, anfangs_pdf_text, end_pdf_text, regeln=None):
         "transaktionen_pro_symbol": pro_symbol,
         "abgleich_bestand": abgleich,
         "dq_checks": dq_checks(abgleich, uebersicht, hinweise),
+        "wertschriftenverzeichnis": wv,
+        "wv_buchungen": wv_buchungen,
     }
 
 
