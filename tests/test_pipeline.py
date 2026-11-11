@@ -337,6 +337,63 @@ class TestWertschriftenverzeichnis(unittest.TestCase):
         wv = {z["Identifier"]: z for z in ergebnis["wertschriftenverzeichnis"]}
         self.assertEqual(wv["GB0000000001"]["Bezeichnung"], "DELTA PLC")
         self.assertEqual(wv["GB0000000001"]["Buchungen"], 1)
+        # Steht in keinem PDF: Aktie oder Fonds ist aus der CSV nicht zu
+        # erkennen, also sagt die Anwendung das, statt zu raten.
+        self.assertEqual(
+            wv["GB0000000001"]["Abschnitt"], pipeline.ABSCHNITT_UNBEKANNT
+        )
+
+    def test_abschnitt_wird_aus_der_buchung_abgeleitet(self):
+        """Gekauft und wieder verkauft: die Position steht in keinem PDF."""
+        zeilen = (
+            "10-03-2025 10:00:00;800020;Kauf;DOT;POLKADOT;EX0X00DOT000;20;"
+            "5.00;0.50;0;-100.50;1.00;USD",
+            "10-09-2025 10:00:00;800021;Verkauf;DOT;POLKADOT;EX0X00DOT000;20;"
+            "6.00;0.50;0;119.50;1.00;USD",
+            "12-03-2025 10:00:00;800022;Kauf;GAMM;GAMMA ETP;CH0000000099;3;"
+            "10.00;0.50;0;-30.50;1.00;CHF",
+            "12-09-2025 10:00:00;800023;Verkauf;GAMM;GAMMA ETP;CH0000000099;3;"
+            "11.00;0.50;0;32.50;1.00;CHF",
+        )
+        rohdaten = beispieldaten.beispiel_csv() + "".join(
+            zeile + "\r\n" for zeile in zeilen
+        ).encode("latin-1")
+        ergebnis = pipeline.auswerten(
+            rohdaten,
+            beispieldaten.beispiel_anfangsbestand(),
+            beispieldaten.beispiel_endbestand(),
+        )
+        wv = {z["Identifier"]: z for z in ergebnis["wertschriftenverzeichnis"]}
+        abgleich = {z["Identifier"]: z for z in ergebnis["abgleich_bestand"]}
+
+        # Die Pseudo-ISIN verraet die Kryptowaehrung eindeutig.
+        self.assertEqual(wv["DOT"]["Abschnitt"], "Kryptowährungen")
+        self.assertEqual(abgleich["DOT"]["Abschnitt"], "Kryptowährungen")
+        # Eine echte ISIN verraet den Abschnitt nicht.
+        self.assertEqual(
+            wv["CH0000000099"]["Abschnitt"], pipeline.ABSCHNITT_UNBEKANNT
+        )
+        self.assertEqual(
+            abgleich["CH0000000099"]["Abschnitt"], pipeline.ABSCHNITT_UNBEKANNT
+        )
+        # Keine Zeile bleibt ohne Abschnitt und faellt aus der Gruppierung.
+        self.assertTrue(all(z["Abschnitt"] for z in ergebnis["wertschriftenverzeichnis"]))
+        # Gekauft und verkauft: der Abgleich geht trotzdem auf.
+        self.assertEqual(abgleich["DOT"]["Status"], "OK")
+        self.assertEqual(abgleich["CH0000000099"]["Status"], "OK")
+
+    def test_abschnitt_aus_buchung_einzeln(self):
+        self.assertEqual(
+            pipeline.abschnitt_aus_buchung({"ISIN": "EX0X00SOL000"}),
+            "Kryptowährungen",
+        )
+        self.assertEqual(
+            pipeline.abschnitt_aus_buchung({"ISIN": "US0000000001"}),
+            pipeline.ABSCHNITT_UNBEKANNT,
+        )
+        self.assertEqual(
+            pipeline.abschnitt_aus_buchung({}), pipeline.ABSCHNITT_UNBEKANNT
+        )
 
 
 class TestFehlerfaelle(unittest.TestCase):

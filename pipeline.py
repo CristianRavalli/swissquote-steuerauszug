@@ -90,6 +90,10 @@ REGEL_SPALTEN = (
 # nicht in diesen Abgleich. Das entspricht der Mappe.
 ABSCHNITTE_IM_ABGLEICH = ("Aktien", "Anlagefonds", "Kryptowährungen")
 
+# Abschnitt fuer Positionen, die an keinem der beiden Stichtage im Depot
+# liegen und deshalb in keinem PDF stehen. Siehe abschnitt_aus_buchung.
+ABSCHNITT_UNBEKANNT = "Ohne Abschnitt"
+
 GRUND_OHNE_WAEHRUNG = "Keine Währung (als Storno behandelt)"
 GRUND_BUCHUNGSART = "Buchungsart wird nicht ausgewertet"
 
@@ -638,6 +642,26 @@ def gesamtuebersicht_bestand(anfangsbestand, endbestand):
 # --- Transaktionen_proSymbol -------------------------------------------------
 
 
+def abschnitt_aus_buchung(zeile):
+    """Abschnitt einer Position, die in keinem der beiden PDFs steht.
+
+    Wer im Lauf der Periode gekauft und wieder verkauft hat, liegt an
+    keinem Stichtag im Depot. Der Abschnitt kommt sonst aus dem PDF, hier
+    muss er aus der Buchung kommen.
+
+    Sicher erkennbar sind nur die Kryptowaehrungen: Swissquote vergibt
+    ihnen eine Pseudo-ISIN mit festem Praefix. Ob eine echte ISIN zu
+    "Aktien" oder zu "Anlagefonds" gehoert, steht in der CSV nirgends --
+    ein ETP sieht dort aus wie eine Aktie. Statt zu raten sagt die
+    Anwendung das offen: so eine Position landet in ABSCHNITT_UNBEKANNT
+    und faellt beim Gruppieren nicht heraus.
+    """
+    isin = (zeile.get("ISIN") or "").upper()
+    if isin.startswith(KRYPTO_PSEUDO_ISIN_PRAEFIX):
+        return "Kryptowährungen"
+    return ABSCHNITT_UNBEKANNT
+
+
 def transaktionen_pro_symbol(uebersicht):
     """Signierte Mengen der aktuellen Periode, gruppiert je Schluessel."""
     gruppen = {}
@@ -654,6 +678,7 @@ def transaktionen_pro_symbol(uebersicht):
             {
                 "Name": None,
                 "Schluessel": schluessel,
+                "Abschnitt": abschnitt_aus_buchung(zeile),
                 "Veraenderung_Transaktionen": Decimal(0),
                 "Anzahl_Transaktionen": 0,
             },
@@ -696,7 +721,9 @@ def abgleich_bestand(bestand, pro_symbol):
             {
                 "Identifier": schluessel,
                 "Produkt_Name": name,
-                "Abschnitt": (links or {}).get("Abschnitt") or "",
+                "Abschnitt": (links or {}).get("Abschnitt")
+                or (rechts or {}).get("Abschnitt")
+                or "",
                 "Anfangsbestand": anfang,
                 "Endbestand": ende,
                 "Änderung_Bestand": aenderung,
@@ -803,7 +830,7 @@ def wertschriftenverzeichnis(bestand, uebersicht):
         position = positionen.setdefault(
             identifier,
             {
-                "Abschnitt": "",
+                "Abschnitt": abschnitt_aus_buchung(zeile),
                 "Identifier": identifier,
                 "Bezeichnung": name,
                 "Stueck_Anfang": Decimal(0),

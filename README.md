@@ -95,6 +95,16 @@ ausserhalb der Periode. Sie stehen unter «Transaktionen der Periode».
 Der Abschnitt «Liquidität» des PDF wird übersprungen, wie in der Mappe.
 Cash-Konten gehören nicht in den Stückzahlen-Abgleich.
 
+### Positionen, die in keinem PDF stehen
+
+Wer eine Position innerhalb der Periode kauft und wieder verkauft, hält sie
+an keinem der beiden Stichtage. Sie steht dann in keinem der beiden PDFs,
+gehört aber ins Wertschriftenverzeichnis. Den Abschnitt leitet die
+Anwendung in diesem Fall aus der Buchung ab: Kryptowährungen erkennt sie an
+der Pseudo-ISIN `EX0X…`, sonst steht dort «Ohne Abschnitt». Ob eine echte
+ISIN zu «Aktien» oder «Anlagefonds» gehört, sagt die CSV nicht — ein ETP
+sieht dort aus wie eine Aktie —, und geraten wird nicht.
+
 ### Abweichungen von der Mappe
 
 Zwei zusätzliche Prüfungen: verworfene Zeilen ohne Währung (als Hinweis) und
