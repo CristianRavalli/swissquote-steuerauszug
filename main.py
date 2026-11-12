@@ -29,10 +29,10 @@ ABGLEICH_SPALTEN = (
     "Anfangsbestand",
     "Endbestand",
     "Änderung_Bestand",
+    "Status",
     "Veraenderung_Transaktionen",
     "Anzahl_Transaktionen",
     "Differenz",
-    "Status",
 )
 
 BESTAND_SPALTEN = (
@@ -147,7 +147,7 @@ def rendere_tabelle(selector, zeilen, spalten, grenze=None, leer_selector=None):
             reihe.dataset.status = status
         for spalte in spalten:
             zelle = _zelle(daten.get(spalte))
-            if spalte == "Ergebnis" and status:
+            if spalte in ("Ergebnis", "Status") and status:
                 zelle.className = "ergebnis-" + str(status)
             reihe.appendChild(zelle)
         koerper.appendChild(reihe)
