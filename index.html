@@ -238,6 +238,77 @@
         margin-top: 0.75rem;
       }
 
+      .filter {
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+        max-width: 28rem;
+        margin: 1rem 0 0.5rem;
+        font-size: 0.9rem;
+      }
+
+      .filter span {
+        font-weight: 600;
+      }
+
+      .filter input {
+        padding: 0.5rem 0.65rem;
+        border: 1px solid var(--rand);
+        border-radius: 0.4rem;
+        background: var(--flaeche);
+        color: var(--text);
+        font: inherit;
+      }
+
+      .anzahl {
+        margin-left: 0.4rem;
+        color: var(--gedaempft);
+        font-size: 0.85rem;
+        font-weight: 400;
+      }
+
+      .tabelle-rahmen {
+        max-height: 32rem;
+        overflow-y: auto;
+      }
+
+      .pruefung {
+        margin-top: 2rem;
+      }
+
+      .pruefung > summary {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+        padding: 1rem 1.5rem;
+        border: 1px solid var(--rand);
+        border-radius: 0.75rem;
+        background: var(--flaeche);
+        cursor: pointer;
+      }
+
+      .pruefung-titel {
+        font-size: 1.15rem;
+        font-weight: 600;
+      }
+
+      .pruefung > summary::-webkit-details-marker {
+        display: none;
+      }
+
+      .pruefung-titel::before {
+        content: "▸ ";
+        color: var(--akzent);
+      }
+
+      .pruefung[open] .pruefung-titel::before {
+        content: "▾ ";
+      }
+
+      .pruefung > summary .hinweis {
+        margin: 0;
+      }
+
       .leer {
         padding: 0.75rem 0;
         color: var(--gedaempft);
@@ -365,14 +436,19 @@
           der ESTV; diese Liste sagt dir nur, was du erfassen musst.
           Cash-Konten sind nicht enthalten.
         </p>
-        <h3>Wertschriften</h3>
+        <label class="filter">
+          <span>Filtern nach Bezeichnung, Symbol oder ISIN</span>
+          <input id="filter-wv" type="search" placeholder="z. B. Apple" autocomplete="off" />
+        </label>
+        <h3>Wertschriften <span class="anzahl" id="wv-anzahl"></span></h3>
         <div class="tabelle-rahmen">
           <table>
             <thead>
               <tr>
                 <th>Abschnitt</th>
-                <th>Identifier</th>
+                <th>Symbol</th>
                 <th>Bezeichnung</th>
+                <th>ISIN / Code</th>
                 <th>Stück Anfang</th>
                 <th>Stück Ende</th>
                 <th>Buchungen</th>
@@ -382,20 +458,25 @@
           </table>
         </div>
         <p class="leer" id="wv-leer">Noch keine Auswertung.</p>
-        <h3>Buchungen im Jahr</h3>
+        <h3>Buchungen im Jahr <span class="anzahl" id="wv-buchungen-anzahl"></span></h3>
+        <p class="hinweis">
+          Sortiert nach Symbol und Datum, wie die Abfrage
+          <code>Buchungen_Jahr</code> der Mappe. Leere Felder hat Swissquote
+          ohne Wert geliefert (zum Beispiel den Stückpreis einer Dividende).
+        </p>
         <div class="tabelle-rahmen">
           <table>
             <thead>
               <tr>
-                <th>Identifier</th>
-                <th>Bezeichnung</th>
                 <th>Datum</th>
+                <th>Symbol</th>
+                <th>Bezeichnung</th>
                 <th>Buchungsart</th>
                 <th>Anzahl</th>
                 <th>Stückpreis</th>
-                <th>Kosten</th>
                 <th>Nettobetrag</th>
                 <th>Währung</th>
+                <th>ISIN / Code</th>
               </tr>
             </thead>
             <tbody id="wv-buchungen"></tbody>
@@ -411,6 +492,16 @@
           </button>
         </div>
       </section>
+
+      <details class="pruefung">
+        <summary>
+          <span class="pruefung-titel">Details zur Prüfung</span>
+          <span class="hinweis">
+            Regeln je Buchungsart, alle Buchungen der CSV und verworfene
+            Zeilen. Brauchst du nur, wenn eine Prüfung oben nicht bestanden
+            ist.
+          </span>
+        </summary>
 
       <section class="panel" aria-labelledby="regeln-titel">
         <h2 id="regeln-titel">Regeln je Buchungsart</h2>
@@ -454,26 +545,33 @@
       </section>
 
       <section class="panel" aria-labelledby="transaktionen-titel">
-        <h2 id="transaktionen-titel">Transaktionen der Periode</h2>
+        <h2 id="transaktionen-titel">
+          Alle Buchungen <span class="anzahl" id="transaktionen-anzahl"></span>
+        </h2>
         <p class="hinweis">
-          Alle Buchungen mit Kategorie, Zuordnungsdatum und Periode. Angezeigt
-          werden die ersten 50 Zeilen; der Download enthält alle.
+          Jede ausgewertete Zeile der CSV, chronologisch, auch aus der Vor- und
+          Folgeperiode. In den Abgleich zählt nur die <strong>Periode</strong>.
+          Rot markiert sind Buchungsarten ohne Regel. Der Download
+          «Transaktionen herunterladen» oben enthält zusätzlich
+          Zuordnungsdatum, Schlüssel und Faktoren.
         </p>
+        <label class="filter">
+          <span>Filtern nach Symbol, Name, ISIN oder Buchungsart</span>
+          <input id="filter-alle" type="search" autocomplete="off" />
+        </label>
         <div class="tabelle-rahmen">
           <table>
             <thead>
               <tr>
                 <th>Datum</th>
-                <th>Zuordnung</th>
                 <th>Periode</th>
                 <th>Buchungsart</th>
                 <th>Kategorie</th>
                 <th>Symbol</th>
-                <th>Schlüssel</th>
+                <th>Name</th>
                 <th>Anzahl</th>
                 <th>Nettobetrag</th>
                 <th>Währung</th>
-                <th>Prüfung</th>
               </tr>
             </thead>
             <tbody id="transaktionen"></tbody>
@@ -519,7 +617,7 @@
           </button>
         </div>
       </section>
-
+      </details>
     </main>
 
     <script type="py" src="./main.py"></script>

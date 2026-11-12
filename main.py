@@ -11,8 +11,6 @@ from pyscript import when
 
 import pipeline
 
-VORSCHAU_ZEILEN = 50
-
 zustand = {
     "anfang_text": None,
     "anfang_name": None,
@@ -68,17 +66,19 @@ TRANSAKTIONEN_SPALTEN = (
 
 TRANSAKTIONEN_ANZEIGE = (
     "Datum",
-    "Zuordnungsdatum",
     "Periode",
     "Transaktionen",
     "Kategorie",
     "Symbol",
-    "Schluessel",
+    "Name",
     "Anzahl",
     "Nettobetrag",
     "Waehrung",
-    "q_Kategorisierung",
 )
+
+# Felder, in denen das Filterfeld sucht.
+WV_FILTER_FELDER = ("Symbol", "Bezeichnung", "Identifier")
+ALLE_FILTER_FELDER = ("Symbol", "Name", "ISIN", "Transaktionen")
 
 DQ_SPALTEN = ("Test", "Betroffene_Zeilen", "Ergebnis")
 
@@ -159,6 +159,85 @@ def rendere_tabelle(selector, zeilen, spalten, grenze=None, leer_selector=None):
         else:
             leer.hidden = False
     return len(anzuzeigen)
+
+
+def _passt(zeile, suchtext, felder):
+    if not suchtext:
+        return True
+    return any(suchtext in str(zeile.get(feld) or "").casefold() for feld in felder)
+
+
+def _filtertext(selector):
+    return document.querySelector(selector).value.strip().casefold()
+
+
+def _zeige_anzahl(selector, gezeigt, gesamt):
+    anzeige = document.querySelector(selector)
+    if gezeigt == gesamt:
+        anzeige.textContent = f"{gesamt} Zeilen"
+    else:
+        anzeige.textContent = f"{gezeigt} von {gesamt} Zeilen"
+
+
+def _rendere_gefiltert(selector, zeilen, spalten, leer_selector, suchtext, felder):
+    treffer = [zeile for zeile in zeilen if _passt(zeile, suchtext, felder)]
+    rendere_tabelle(selector, treffer, spalten, None, leer_selector)
+    if zeilen and not treffer:
+        leer = document.querySelector(leer_selector)
+        leer.textContent = "Keine Treffer für diesen Filter."
+        leer.hidden = False
+    return len(treffer)
+
+
+def rendere_grundlage():
+    ergebnis = zustand["ergebnis"]
+    if ergebnis is None:
+        return
+    suchtext = _filtertext("#filter-wv")
+    positionen = ergebnis["wertschriftenverzeichnis"]
+    buchungen = ergebnis["wv_buchungen"]
+    n_pos = _rendere_gefiltert(
+        "#wv", positionen, pipeline.WV_SPALTEN, "#wv-leer", suchtext, WV_FILTER_FELDER
+    )
+    n_buch = _rendere_gefiltert(
+        "#wv-buchungen",
+        buchungen,
+        pipeline.WV_BUCHUNG_SPALTEN,
+        "#wv-buchungen-leer",
+        suchtext,
+        WV_FILTER_FELDER,
+    )
+    _zeige_anzahl("#wv-anzahl", n_pos, len(positionen))
+    _zeige_anzahl("#wv-buchungen-anzahl", n_buch, len(buchungen))
+
+
+def _alle_buchungen_anzeige(uebersicht):
+    """Chronologisch; Buchungen ohne Regel sind rot markiert."""
+    zeilen = []
+    for zeile in uebersicht:
+        anzeige = dict(zeile)
+        if zeile["q_Kategorisierung"] != "OK":
+            anzeige["Status"] = "Fehler"
+            anzeige["Kategorie"] = zeile["Kategorie"] or "keine Regel"
+        zeilen.append(anzeige)
+    zeilen.sort(key=lambda z: (z["Datum"] is None, z["Datum"] or pipeline._MIN_DATUM))
+    return zeilen
+
+
+def rendere_alle_buchungen():
+    ergebnis = zustand["ergebnis"]
+    if ergebnis is None:
+        return
+    zeilen = _alle_buchungen_anzeige(ergebnis["uebersicht_transaktionen"])
+    n = _rendere_gefiltert(
+        "#transaktionen",
+        zeilen,
+        TRANSAKTIONEN_ANZEIGE,
+        "#transaktionen-leer",
+        _filtertext("#filter-alle"),
+        ALLE_FILTER_FELDER,
+    )
+    _zeige_anzahl("#transaktionen-anzahl", n, len(zeilen))
 
 
 def rendere_regeln():
@@ -253,13 +332,7 @@ def werte_aus():
         key=lambda zeile: (zeile["Status"] == "OK", zeile["Identifier"]),
     )
     rendere_tabelle("#abgleich", abgleich, ABGLEICH_SPALTEN, None, "#abgleich-leer")
-    angezeigt = rendere_tabelle(
-        "#transaktionen",
-        ergebnis["uebersicht_transaktionen"],
-        TRANSAKTIONEN_ANZEIGE,
-        VORSCHAU_ZEILEN,
-        "#transaktionen-leer",
-    )
+    rendere_alle_buchungen()
     rendere_tabelle(
         "#verworfen",
         ergebnis["verworfene_transaktionen"],
@@ -267,16 +340,7 @@ def werte_aus():
         None,
         "#verworfen-leer",
     )
-    rendere_tabelle(
-        "#wv", ergebnis["wertschriftenverzeichnis"], pipeline.WV_SPALTEN, None, "#wv-leer"
-    )
-    rendere_tabelle(
-        "#wv-buchungen",
-        ergebnis["wv_buchungen"],
-        pipeline.WV_BUCHUNG_SPALTEN,
-        None,
-        "#wv-buchungen-leer",
-    )
+    rendere_grundlage()
     setze_downloads_aktiv(True)
 
     fehler = [zeile for zeile in ergebnis["dq_checks"] if zeile["Ergebnis"] == "Fehler"]
@@ -284,15 +348,12 @@ def werte_aus():
         zeile for zeile in ergebnis["dq_checks"] if zeile["Ergebnis"] == "Hinweis"
     ]
     gesamt = len(ergebnis["uebersicht_transaktionen"])
-    rest = max(gesamt - angezeigt, 0)
     meldung = (
         f"Stichtage {ergebnis['stichtag_anfang'].strftime('%d.%m.%Y')} bis "
         f"{ergebnis['stichtag_ende'].strftime('%d.%m.%Y')}. "
         f"{len(ergebnis['abgleich_bestand'])} Positionen abgeglichen, "
         f"{gesamt} Buchungen ausgewertet"
     )
-    if rest:
-        meldung += f" (angezeigt: die ersten {angezeigt})"
     meldung += ". "
     def _liste(zeilen):
         return ", ".join(
@@ -411,6 +472,16 @@ def setze_regeln_zurueck(event):
     rendere_regeln()
     setze_status("Regeln auf den Standard zurückgesetzt.")
     werte_aus()
+
+
+@when("input", "#filter-wv")
+def filtere_grundlage(event):
+    rendere_grundlage()
+
+
+@when("input", "#filter-alle")
+def filtere_alle(event):
+    rendere_alle_buchungen()
 
 
 # --- Downloads ---------------------------------------------------------------

@@ -306,16 +306,50 @@ class TestWertschriftenverzeichnis(unittest.TestCase):
         self.assertEqual(
             arten,
             [
-                ("SOL", "Crypto Deposit"),
-                ("SOL", "Crypto Deposit"),
+                # Nach Symbol und Datum sortiert, wie Buchungen_Jahr der Mappe.
                 ("US0000000001", "Kauf"),
                 ("US0000000001", "Kauf"),
                 ("US0000000001", "Dividende"),
                 ("US0000000019", "Verkauf"),
+                ("SOL", "Crypto Deposit"),
+                ("SOL", "Crypto Deposit"),
             ],
+        )
+        self.assertEqual(
+            [b["Symbol"] for b in self.buchungen],
+            ["ALPH", "ALPH", "ALPH", "BETA", "SOL", "SOL"],
         )
         self.assertEqual(self.wv["US0000000001"]["Buchungen"], 3)
         self.assertEqual(self.wv["CH0000000013"]["Buchungen"], 0)
+
+    def test_leere_felder_statt_null(self):
+        """Swissquote schreibt 0.00, wo es keinen Wert gibt."""
+        deposit = next(b for b in self.buchungen if b["Transaktionen"] == "Crypto Deposit")
+        self.assertIsNone(deposit["Stueckpreis"])
+        self.assertIsNone(deposit["Nettobetrag"])
+        self.assertEqual(deposit["Anzahl"], Decimal("0.25"))
+        dividende = next(b for b in self.buchungen if b["Transaktionen"] == "Dividende")
+        self.assertIsNone(dividende["Stueckpreis"])
+        self.assertEqual(dividende["Nettobetrag"], Decimal("3.00"))
+
+    def test_wertschriften_mit_symbol_und_lesbarer_bezeichnung(self):
+        self.assertEqual(self.wv["US0000000001"]["Symbol"], "ALPH")
+        self.assertEqual(self.wv["SOL"]["Symbol"], "SOL")
+        # Ohne Buchung im Jahr kennt nur die CSV das Symbol.
+        self.assertEqual(self.wv["CH0000000013"]["Symbol"], "")
+        # "Position in SOL" aus dem PDF wird durch den CSV-Namen ersetzt.
+        self.assertEqual(self.wv["SOL"]["Bezeichnung"], "SOLANA")
+
+    def test_wertschriften_nach_abschnitt_und_bezeichnung(self):
+        ergebnis = pipeline.auswerten(
+            beispieldaten.beispiel_csv(),
+            beispieldaten.beispiel_anfangsbestand(),
+            beispieldaten.beispiel_endbestand(),
+        )
+        self.assertEqual(
+            [z["Identifier"] for z in ergebnis["wertschriftenverzeichnis"]],
+            ["US0000000001", "US0000000019", "CH0000000013", "SOL"],
+        )
 
     def test_ohne_kontozinsen_und_ohne_folgeperiode(self):
         self.assertTrue(all(b["Identifier"] for b in self.buchungen))

@@ -772,24 +772,40 @@ KATEGORIE_IGNORIEREN = "Ignorieren"
 
 WV_SPALTEN = (
     "Abschnitt",
-    "Identifier",
+    "Symbol",
     "Bezeichnung",
+    "Identifier",
     "Stueck_Anfang",
     "Stueck_Ende",
     "Buchungen",
 )
 
+# Reihenfolge wie die Abfrage Buchungen_Jahr der Mappe: Datum und Symbol
+# vorne, die ISIN als Nachschlagewert hinten.
 WV_BUCHUNG_SPALTEN = (
-    "Identifier",
-    "Bezeichnung",
     "Datum",
+    "Symbol",
+    "Bezeichnung",
     "Transaktionen",
     "Anzahl",
     "Stueckpreis",
-    "Kosten",
     "Nettobetrag",
     "Waehrung",
+    "Identifier",
 )
+
+
+def _leer_wenn_null(wert):
+    """Swissquote schreibt 0.00, wo es keinen Wert gibt (Stueckpreis einer
+    Dividende, Nettobetrag "-" eines Crypto Deposit). Zum Abschreiben ist
+    eine leere Zelle ehrlicher als eine 0."""
+    if wert is None or wert == 0:
+        return None
+    return wert
+
+
+def _sortier_text(text):
+    return (text or "").casefold()
 
 
 def wertschriftenverzeichnis(bestand, uebersicht):
@@ -800,22 +816,28 @@ def wertschriftenverzeichnis(bestand, uebersicht):
 
     positionen: jede Wertschrift mit Bestand am Anfang oder Ende oder mit
         Buchungen in der Periode, mit Stueckzahl am Anfang und Ende.
+        Sortiert nach Abschnitt und Bezeichnung.
     buchungen: jede Buchung der Periode, die zu einer Wertschrift gehoert
         (Kauf, Verkauf, Dividende, Zugang usw.), ohne die als "Ignorieren"
         eingestuften. Cash-Konten haben keinen Identifier und fehlen.
+        Sortiert nach Symbol und Datum wie Buchungen_Jahr in der Mappe.
     """
-    namen = {}
     positionen = {}
     for zeile in bestand:
-        positionen[zeile["Identifier"]] = {
+        identifier = zeile["Identifier"]
+        positionen[identifier] = {
             "Abschnitt": zeile["Abschnitt"] or "",
-            "Identifier": zeile["Identifier"],
+            # Bei Krypto ist der Schluessel das Symbol; sonst liefert es erst
+            # eine Buchung.
+            "Symbol": identifier
+            if zeile["Abschnitt"] == "Kryptowährungen"
+            else "",
+            "Identifier": identifier,
             "Bezeichnung": zeile["Produkt_Name"] or "",
             "Stueck_Anfang": zeile["Anfangsbestand"],
             "Stueck_Ende": zeile["Endbestand"],
             "Buchungen": 0,
         }
-        namen[zeile["Identifier"]] = zeile["Produkt_Name"] or ""
 
     buchungen = []
     for zeile in uebersicht:
@@ -826,35 +848,55 @@ def wertschriftenverzeichnis(bestand, uebersicht):
             or zeile["Kategorie"] == KATEGORIE_IGNORIEREN
         ):
             continue
-        name = namen.get(identifier) or zeile.get("Name") or ""
+        csv_name = zeile.get("Name") or ""
+        symbol = zeile.get("Symbol") or ""
         position = positionen.setdefault(
             identifier,
             {
                 "Abschnitt": abschnitt_aus_buchung(zeile),
+                "Symbol": "",
                 "Identifier": identifier,
-                "Bezeichnung": name,
+                "Bezeichnung": csv_name,
                 "Stueck_Anfang": Decimal(0),
                 "Stueck_Ende": Decimal(0),
                 "Buchungen": 0,
             },
         )
         position["Buchungen"] += 1
+        if symbol and not position["Symbol"]:
+            position["Symbol"] = symbol
+        # "Position in SOL" aus dem PDF sagt weniger als "SOLANA" aus der CSV.
+        if csv_name and (
+            not position["Bezeichnung"]
+            or position["Bezeichnung"].startswith(KRYPTO_PRAEFIX)
+        ):
+            position["Bezeichnung"] = csv_name
         buchungen.append(
             {
-                "Identifier": identifier,
-                "Bezeichnung": name,
                 "Datum": zeile["Datum"],
+                "Symbol": symbol or identifier,
+                "Bezeichnung": csv_name or position["Bezeichnung"],
                 "Transaktionen": zeile["Transaktionen"],
-                "Anzahl": zeile["Anzahl"],
-                "Stueckpreis": zeile.get("Stueckpreis"),
-                "Kosten": zeile.get("Kosten"),
-                "Nettobetrag": zeile["Nettobetrag"],
+                "Anzahl": _leer_wenn_null(zeile["Anzahl"]),
+                "Stueckpreis": _leer_wenn_null(zeile.get("Stueckpreis")),
+                "Nettobetrag": _leer_wenn_null(zeile["Nettobetrag"]),
                 "Waehrung": zeile["Waehrung"],
+                "Identifier": identifier,
             }
         )
 
-    buchungen.sort(key=lambda b: (b["Identifier"], b["Datum"] or _MIN_DATUM))
-    return [positionen[k] for k in sorted(positionen)], buchungen
+    buchungen.sort(
+        key=lambda b: (_sortier_text(b["Symbol"]), b["Datum"] or _MIN_DATUM)
+    )
+    reihenfolge = sorted(
+        positionen.values(),
+        key=lambda p: (
+            _sortier_text(p["Abschnitt"]),
+            _sortier_text(p["Bezeichnung"]),
+            p["Identifier"],
+        ),
+    )
+    return reihenfolge, buchungen
 
 
 # --- Gesamtlauf --------------------------------------------------------------

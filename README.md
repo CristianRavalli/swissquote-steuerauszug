@@ -96,7 +96,8 @@ Buchungen» auf.
 
 Nicht verworfen, aber ohne Wirkung auf den Abgleich sind Buchungen mit
 `Faktor_Menge = 0` (zum Beispiel Dividenden und Zinsen) sowie Buchungen
-ausserhalb der Periode. Sie stehen unter «Transaktionen der Periode».
+ausserhalb der Periode. Sie stehen unter «Details zur Prüfung → Alle
+Buchungen».
 
 ### Cash-Konten
 
@@ -124,10 +125,21 @@ Zwei Listen, ohne steuerliche Wertung:
 
 - **Wertschriften**: jede Wertschrift mit Bestand am Anfang oder Ende oder
   mit Buchungen in der Periode, mit Stückzahl am Anfang und am Ende. Eine im
-  Jahr verkaufte Wertschrift steht also mit Ende 0 drin.
+  Jahr verkaufte Wertschrift steht also mit Ende 0 drin. Sortiert nach
+  Abschnitt und Bezeichnung.
 - **Buchungen im Jahr**: jede Buchung der Periode, die zu einer Wertschrift
   gehört (Kauf, Verkauf, Dividende, Zugang usw.), ausser den Buchungsarten
-  mit Kategorie `Ignorieren`.
+  mit Kategorie `Ignorieren`. Sortiert nach Symbol und Datum wie die Abfrage
+  `Buchungen_Jahr` der Mappe. Wo Swissquote `0.00` oder `-` statt eines
+  Werts liefert (Stückpreis einer Dividende, Nettobetrag eines
+  `Crypto Deposit`), bleibt die Zelle leer.
+
+Ein Filterfeld über beiden Listen sucht in Bezeichnung, Symbol und ISIN.
+Die Downloads enthalten immer alle Zeilen.
+
+Regeln, alle Buchungen der CSV und verworfene Zeilen stehen zugeklappt unter
+«Details zur Prüfung». Sie braucht es nur, wenn eine Prüfung nicht bestanden
+ist.
 
 Steuerwerte, Erträge und die Verrechnungssteuer-Pflicht kommen aus der
 Kursliste der ESTV. Die Liste zeigt nur, was im Wertschriftenverzeichnis zu
