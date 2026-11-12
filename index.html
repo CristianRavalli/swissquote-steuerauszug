@@ -272,6 +272,12 @@
         overflow-y: auto;
       }
 
+      table.summen {
+        width: auto;
+        min-width: min(100%, 26rem);
+        margin-bottom: 0.75rem;
+      }
+
       .pruefung {
         margin-top: 2rem;
       }
@@ -489,6 +495,85 @@
           </button>
           <button id="download-wv-buchungen" type="button" disabled>
             Buchungen herunterladen
+          </button>
+        </div>
+      </section>
+
+      <section class="panel" aria-labelledby="konten-titel">
+        <h2 id="konten-titel">Kontozinsen und Depotgebühren</h2>
+        <p class="hinweis">
+          Buchungen der Periode auf den Cash-Konten, ohne steuerliche Wertung.
+          Zinsen am Monatsersten zählen zum Vortag, wie in
+          <code>tbl_regeln</code>. Depotgebühren, die im Januar belastet
+          werden, gelten für das Vorjahr. Börsengebühren sind Teil der
+          Kauf- und Verkaufsbuchungen und stehen hier nicht. Die Konten heissen
+          nur nach ihrer Währung; Kontonummern zeigt die Seite nicht.
+        </p>
+        <h3>Kontozinsen <span class="anzahl" id="kontozinsen-anzahl"></span></h3>
+        <div class="tabelle-rahmen">
+          <table class="summen">
+            <thead>
+              <tr>
+                <th>Buchungsart</th>
+                <th>Währung</th>
+                <th>Buchungen</th>
+                <th>Summe</th>
+              </tr>
+            </thead>
+            <tbody id="kontozinsen-summen"></tbody>
+          </table>
+        </div>
+        <p class="leer" id="kontozinsen-leer">Noch keine Auswertung.</p>
+        <div class="tabelle-rahmen">
+          <table>
+            <thead>
+              <tr>
+                <th>Datum</th>
+                <th>Zählt zu</th>
+                <th>Buchungsart</th>
+                <th>Konto</th>
+                <th>Betrag</th>
+                <th>Währung</th>
+              </tr>
+            </thead>
+            <tbody id="kontozinsen"></tbody>
+          </table>
+        </div>
+        <h3>Depotgebühren <span class="anzahl" id="gebuehren-anzahl"></span></h3>
+        <div class="tabelle-rahmen">
+          <table class="summen">
+            <thead>
+              <tr>
+                <th>Buchungsart</th>
+                <th>Währung</th>
+                <th>Buchungen</th>
+                <th>Summe</th>
+              </tr>
+            </thead>
+            <tbody id="gebuehren-summen"></tbody>
+          </table>
+        </div>
+        <p class="leer" id="gebuehren-leer">Noch keine Auswertung.</p>
+        <div class="tabelle-rahmen">
+          <table>
+            <thead>
+              <tr>
+                <th>Datum</th>
+                <th>Zählt zu</th>
+                <th>Buchungsart</th>
+                <th>Betrag</th>
+                <th>Währung</th>
+              </tr>
+            </thead>
+            <tbody id="gebuehren"></tbody>
+          </table>
+        </div>
+        <div class="aktionen">
+          <button id="download-kontozinsen" type="button" disabled>
+            Kontozinsen herunterladen
+          </button>
+          <button id="download-gebuehren" type="button" disabled>
+            Depotgebühren herunterladen
           </button>
         </div>
       </section>

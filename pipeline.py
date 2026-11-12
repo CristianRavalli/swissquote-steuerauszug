@@ -25,7 +25,7 @@ Dezimalstellen haben und Gleitkommarundung den Abgleich verfaelschen wuerde.
 import csv
 import io
 import re
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 
 # --- Konstanten aus der Mappe ------------------------------------------------
@@ -899,6 +899,107 @@ def wertschriftenverzeichnis(bestand, uebersicht):
     return reihenfolge, buchungen
 
 
+# --- Gebuehren und Kontozinsen ----------------------------------------------
+
+BUCHUNGSART_DEPOTGEBUEHREN = "Depotgebühren"
+
+GEBUEHR_SPALTEN = ("Datum", "Zaehlt_zu", "Transaktionen", "Betrag", "Waehrung")
+KONTOZINS_SPALTEN = ("Datum", "Zaehlt_zu", "Transaktionen", "Konto", "Betrag", "Waehrung")
+SUMMEN_SPALTEN = ("Transaktionen", "Waehrung", "Anzahl_Buchungen", "Summe")
+
+
+def _zuordnung_gebuehr(datum):
+    """Depotgebuehren, die im Januar belastet werden, gelten fuer das Vorjahr.
+
+    Die Regel Zuordnung_Vorjahr der Mappe greift nur am Monatsersten; Swissquote
+    belastet die Gebuehr aber irgendwann im Januar. Deshalb eine eigene Regel.
+    """
+    if datum is None:
+        return None
+    if datum.month == 1:
+        return date(datum.year - 1, 12, 31)
+    return datum
+
+
+def gebuehren(verworfen, stichtag_anfang, stichtag_ende):
+    """Depotgebuehren der Periode, ohne Boersengebuehren.
+
+    Die Zeilen bleiben fuer den Abgleich verworfen wie in der Mappe; diese
+    Liste sammelt sie nur zusaetzlich ein.
+    """
+    ergebnis = []
+    for zeile in verworfen:
+        if zeile["Transaktionen"] != BUCHUNGSART_DEPOTGEBUEHREN:
+            continue
+        if zeile["Grund"] != GRUND_BUCHUNGSART:
+            continue  # Storno ohne Waehrung
+        zaehlt_zu = _zuordnung_gebuehr(zeile["Datum"])
+        if _periode(zaehlt_zu, stichtag_anfang, stichtag_ende) != "Periode":
+            continue
+        ergebnis.append(
+            {
+                "Datum": zeile["Datum"],
+                "Zaehlt_zu": zaehlt_zu,
+                "Transaktionen": zeile["Transaktionen"],
+                "Betrag": zeile["Nettobetrag"],
+                "Waehrung": zeile["Waehrung"],
+            }
+        )
+    ergebnis.sort(key=lambda z: (z["Waehrung"], z["Datum"] or _MIN_DATUM))
+    return ergebnis
+
+
+def kontozinsen(uebersicht):
+    """Zins- und Schuldzinsbuchungen der Periode auf den Cash-Konten.
+
+    Das sind die Buchungen ohne Wertschrift (kein Schluessel), die nicht als
+    "Ignorieren" eingestuft sind. Die Periode samt Regel fuer den 1. Januar
+    kommt aus uebersicht_transaktionen. Das Konto wird nur ueber die Waehrung
+    benannt, damit keine Kontoreferenz auf der Seite oder im Download landet.
+    """
+    ergebnis = []
+    for zeile in uebersicht:
+        if (
+            zeile["Periode"] != "Periode"
+            or zeile["Schluessel"]
+            or zeile["Kategorie"] in (None, KATEGORIE_IGNORIEREN)
+        ):
+            continue
+        ergebnis.append(
+            {
+                "Datum": zeile["Datum"],
+                "Zaehlt_zu": zeile["Zuordnungsdatum"],
+                "Transaktionen": zeile["Transaktionen"],
+                "Konto": "Konto " + zeile["Waehrung"],
+                "Betrag": zeile["Nettobetrag"],
+                "Waehrung": zeile["Waehrung"],
+            }
+        )
+    ergebnis.sort(
+        key=lambda z: (z["Waehrung"], z["Transaktionen"], z["Datum"] or _MIN_DATUM)
+    )
+    return ergebnis
+
+
+def summen(zeilen):
+    """Summe je Buchungsart und Waehrung."""
+    gruppen = {}
+    for zeile in zeilen:
+        schluessel = (zeile["Transaktionen"], zeile["Waehrung"])
+        gruppe = gruppen.setdefault(
+            schluessel,
+            {
+                "Transaktionen": zeile["Transaktionen"],
+                "Waehrung": zeile["Waehrung"],
+                "Anzahl_Buchungen": 0,
+                "Summe": Decimal(0),
+            },
+        )
+        gruppe["Anzahl_Buchungen"] += 1
+        gruppe["Summe"] += zeile["Betrag"] or Decimal(0)
+    return [gruppen[k] for k in sorted(gruppen)]
+
+
 # --- Gesamtlauf --------------------------------------------------------------
 
 
@@ -916,6 +1017,8 @@ def auswerten(csv_rohdaten, anfangs_pdf_text, end_pdf_text, regeln=None):
     pro_symbol = transaktionen_pro_symbol(uebersicht)
     abgleich = abgleich_bestand(bestand, pro_symbol)
     wv, wv_buchungen = wertschriftenverzeichnis(bestand, uebersicht)
+    depotgebuehren = gebuehren(verworfen, stichtag_anfang, stichtag_ende)
+    zinsen = kontozinsen(uebersicht)
 
     return {
         "hinweise": hinweise,
@@ -931,6 +1034,10 @@ def auswerten(csv_rohdaten, anfangs_pdf_text, end_pdf_text, regeln=None):
         "dq_checks": dq_checks(abgleich, uebersicht, hinweise),
         "wertschriftenverzeichnis": wv,
         "wv_buchungen": wv_buchungen,
+        "gebuehren": depotgebuehren,
+        "gebuehren_summen": summen(depotgebuehren),
+        "kontozinsen": zinsen,
+        "kontozinsen_summen": summen(zinsen),
     }
 
 

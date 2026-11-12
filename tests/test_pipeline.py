@@ -490,3 +490,82 @@ class TestFehlerfaelle(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestGebuehrenUndKontozinsen(unittest.TestCase):
+    ZUSATZ = (
+        # Im Januar belastet: gilt fuer das Vorjahr 2024, also nicht in der Periode.
+        "08-01-2025 00:00:00;800030;Depotgebühren;;Depot;;0;0.00;0.00;0;-40.00;1.00;CHF",
+        "04-07-2025 00:00:00;800031;Depotgebühren;;Depot;;0;0.00;0.00;0;-40.00;1.00;CHF",
+        # Im Januar des Folgejahres belastet: gilt fuer 2025.
+        "07-01-2026 00:00:00;800032;Depotgebühren;;Depot;;0;0.00;0.00;0;-42.50;1.00;CHF",
+        "04-07-2025 00:00:00;800033;Depotgebühren;;Depot;;0;0.00;0.00;0;-3.00;1.00;USD",
+        # Schuldzinsen am 1. Januar 2025 gehoeren zu 2024.
+        "01-01-2025 00:00:00;800034;Zinsen auf Belastungen;;Konto USD 9999;;0;"
+        "0.00;0.00;0;-1.10;1.00;USD",
+        "01-07-2025 00:00:00;800035;Zinsen auf Belastungen;;Konto USD 9999;;0;"
+        "0.00;0.00;0;-2.10;1.00;USD",
+    )
+
+    def setUp(self):
+        rohdaten = beispieldaten.beispiel_csv() + "".join(
+            zeile + "\r\n" for zeile in self.ZUSATZ
+        ).encode("latin-1")
+        self.ergebnis = pipeline.auswerten(
+            rohdaten,
+            beispieldaten.beispiel_anfangsbestand(),
+            beispieldaten.beispiel_endbestand(),
+        )
+        self.ohne_zusatz = pipeline.auswerten(
+            beispieldaten.beispiel_csv(),
+            beispieldaten.beispiel_anfangsbestand(),
+            beispieldaten.beispiel_endbestand(),
+        )
+
+    def test_depotgebuehren_der_periode_mit_januar_regel(self):
+        gebuehren = self.ergebnis["gebuehren"]
+        self.assertEqual(
+            [(g["Datum"], g["Zaehlt_zu"], g["Betrag"], g["Waehrung"]) for g in gebuehren],
+            [
+                # Aus den Beispieldaten.
+                (date(2025, 2, 2), date(2025, 2, 2), Decimal("-9.00"), "CHF"),
+                (date(2025, 7, 4), date(2025, 7, 4), Decimal("-40.00"), "CHF"),
+                (date(2026, 1, 7), date(2025, 12, 31), Decimal("-42.50"), "CHF"),
+                (date(2025, 7, 4), date(2025, 7, 4), Decimal("-3.00"), "USD"),
+            ],
+        )
+
+    def test_boersengebuehren_nicht_in_der_liste(self):
+        arten = {g["Transaktionen"] for g in self.ergebnis["gebuehren"]}
+        self.assertEqual(arten, {"Depotgebühren"})
+
+    def test_summe_je_waehrung(self):
+        self.assertEqual(
+            [(s["Waehrung"], s["Anzahl_Buchungen"], s["Summe"]) for s in self.ergebnis["gebuehren_summen"]],
+            [("CHF", 3, Decimal("-91.50")), ("USD", 1, Decimal("-3.00"))],
+        )
+
+    def test_abgleich_bleibt_unveraendert(self):
+        self.assertEqual(
+            self.ergebnis["abgleich_bestand"], self.ohne_zusatz["abgleich_bestand"]
+        )
+        # Depotgebuehren bleiben fuer den Abgleich verworfen, wie in der Mappe.
+        self.assertEqual(
+            len(self.ergebnis["verworfene_transaktionen"]),
+            len(self.ohne_zusatz["verworfene_transaktionen"]) + 4,
+        )
+
+    def test_kontozinsen_der_periode(self):
+        zinsen = self.ergebnis["kontozinsen"]
+        self.assertEqual(
+            [(z["Transaktionen"], z["Zaehlt_zu"], z["Betrag"], z["Konto"]) for z in zinsen],
+            [
+                ("Zinsen auf Einlagen", date(2025, 12, 31), Decimal("1.2"), "Konto CHF"),
+                # Monatserster: zaehlt laut Regel zum Vortag.
+                ("Zinsen auf Belastungen", date(2025, 6, 30), Decimal("-2.10"), "Konto USD"),
+            ],
+        )
+
+    def test_keine_kontoreferenz_in_den_kontozinsen(self):
+        csv_text = pipeline.als_csv(self.ergebnis["kontozinsen"], pipeline.KONTOZINS_SPALTEN)
+        self.assertNotIn("9999", csv_text)

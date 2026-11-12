@@ -93,6 +93,8 @@ Buchungen» auf.
 - **Buchungsart wird nicht ausgewertet.** `Zahlung`, `Kartentransaktion`,
   `Forex-Belastung`, `Forex-Gutschrift`, `Depotgebühren` und
   `Berichtigung Börsengeb.` ändern keine Stückzahl einer Wertschrift.
+  Die Depotgebühren sammelt die Anwendung trotzdem in einer eigenen Liste
+  (siehe unten); der Abgleich bleibt davon unberührt.
 
 Nicht verworfen, aber ohne Wirkung auf den Abgleich sind Buchungen mit
 `Faktor_Menge = 0` (zum Beispiel Dividenden und Zinsen) sowie Buchungen
@@ -102,7 +104,9 @@ Buchungen».
 ### Cash-Konten
 
 Der Abschnitt «Liquidität» des PDF wird übersprungen, wie in der Mappe.
-Cash-Konten gehören nicht in den Stückzahlen-Abgleich.
+Cash-Konten gehören nicht in den Stückzahlen-Abgleich. Ihre Zinsen stehen
+unter «Kontozinsen und Depotgebühren»; die Saldi am Stichtag liefert die
+Anwendung noch nicht.
 
 ### Positionen, die in keinem PDF stehen
 
@@ -144,6 +148,24 @@ ist.
 Steuerwerte, Erträge und die Verrechnungssteuer-Pflicht kommen aus der
 Kursliste der ESTV. Die Liste zeigt nur, was im Wertschriftenverzeichnis zu
 erfassen ist. Cash-Konten sind nicht enthalten.
+
+## Kontozinsen und Depotgebühren
+
+Zwei weitere Listen der Periode, je mit Summe pro Buchungsart und Währung:
+
+- **Kontozinsen**: `Zinsen auf Einlagen` und `Zinsen auf Belastungen`, also
+  alle Buchungen ohne Wertschrift, die nicht als `Ignorieren` eingestuft
+  sind. Eine Buchung am Monatsersten zählt laut `tbl_regeln` zum Vortag.
+  Das Konto heisst nur nach seiner Währung, zum Beispiel «Konto CHF»;
+  Kontonummern erscheinen weder auf der Seite noch im Download.
+- **Depotgebühren**: jede Buchung `Depotgebühren`. Eine im Januar belastete
+  Gebühr gilt für das Vorjahr. Das ist eine eigene Regel, weil
+  `Zuordnung_Vorjahr` nur den Monatsersten verschiebt. Börsengebühren
+  (`Berichtigung Börsengeb.`) gehören zu den Kauf- und Verkaufsbuchungen und
+  stehen nicht in der Liste.
+
+Die Power-Query-Mappe kennt diese Listen nicht. Abgleich und verworfene
+Buchungen bleiben deshalb gleich wie dort.
 
 ### Was die Anwendung nicht liefert
 

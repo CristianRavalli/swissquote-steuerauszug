@@ -174,7 +174,7 @@ def _filtertext(selector):
 def _zeige_anzahl(selector, gezeigt, gesamt):
     anzeige = document.querySelector(selector)
     if gezeigt == gesamt:
-        anzeige.textContent = f"{gesamt} Zeilen"
+        anzeige.textContent = "1 Zeile" if gesamt == 1 else f"{gesamt} Zeilen"
     else:
         anzeige.textContent = f"{gezeigt} von {gesamt} Zeilen"
 
@@ -240,6 +240,22 @@ def rendere_alle_buchungen():
     _zeige_anzahl("#transaktionen-anzahl", n, len(zeilen))
 
 
+def rendere_konten(ergebnis):
+    for name, spalten in (
+        ("kontozinsen", pipeline.KONTOZINS_SPALTEN),
+        ("gebuehren", pipeline.GEBUEHR_SPALTEN),
+    ):
+        zeilen = ergebnis[name]
+        rendere_tabelle(f"#{name}", zeilen, spalten, None, f"#{name}-leer")
+        rendere_tabelle(
+            f"#{name}-summen", ergebnis[name + "_summen"], pipeline.SUMMEN_SPALTEN
+        )
+        leer = document.querySelector(f"#{name}-leer")
+        if not zeilen:
+            leer.textContent = "Keine Buchungen in der Periode."
+        _zeige_anzahl(f"#{name}-anzahl", len(zeilen), len(zeilen))
+
+
 def rendere_regeln():
     rendere_tabelle("#regeln", zustand["regeln"], REGEL_ANZEIGE)
 
@@ -282,6 +298,8 @@ def setze_downloads_aktiv(aktiv):
         "#download-verworfen",
         "#download-wv",
         "#download-wv-buchungen",
+        "#download-kontozinsen",
+        "#download-gebuehren",
     ):
         document.querySelector(selector).disabled = not aktiv
 
@@ -341,6 +359,7 @@ def werte_aus():
         "#verworfen-leer",
     )
     rendere_grundlage()
+    rendere_konten(ergebnis)
     setze_downloads_aktiv(True)
 
     fehler = [zeile for zeile in ergebnis["dq_checks"] if zeile["Ergebnis"] == "Fehler"]
@@ -572,6 +591,28 @@ def download_wv_buchungen(event):
     lade_herunter(
         pipeline.als_csv(ergebnis["wv_buchungen"], pipeline.WV_BUCHUNG_SPALTEN),
         f"wertschriften-buchungen-{_jahr()}.csv",
+    )
+
+
+@when("click", "#download-kontozinsen")
+def download_kontozinsen(event):
+    ergebnis = zustand["ergebnis"]
+    if ergebnis is None:
+        return
+    lade_herunter(
+        pipeline.als_csv(ergebnis["kontozinsen"], pipeline.KONTOZINS_SPALTEN),
+        f"kontozinsen-{_jahr()}.csv",
+    )
+
+
+@when("click", "#download-gebuehren")
+def download_gebuehren(event):
+    ergebnis = zustand["ergebnis"]
+    if ergebnis is None:
+        return
+    lade_herunter(
+        pipeline.als_csv(ergebnis["gebuehren"], pipeline.GEBUEHR_SPALTEN),
+        f"depotgebuehren-{_jahr()}.csv",
     )
 
 
