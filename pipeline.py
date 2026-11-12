@@ -431,6 +431,79 @@ def lies_bestand(pdf_text, bezeichnung):
     return positionen, stichtag
 
 
+# --- Kontosaldi aus dem Abschnitt "Liquiditaet" -------------------------------
+
+KONTO_SPALTEN = ("Konto", "Waehrung", "Saldo", "Wechselkurs", "Saldo_CHF", "Stichtag")
+_KONTO_BESCHREIBUNG = re.compile(r"\(([A-Z][A-Z0-9]{1,11})\)\s*$")
+
+
+def lies_konten(pdf_text):
+    """Saldo je Cash-Konto am Stichtag des PDF.
+
+    Zeile im Abschnitt Liquiditaet:
+    'Waehrung | Referenz | Beschreibung | Wert | Wechselkurs | Bewertung CHF | %'.
+    Die Referenz ist die Kontonummer und wird nie uebernommen. Gibt
+    (konten, total_chf) zurueck; total_chf ist der Wert der Zeile
+    "Total Liquiditaet" oder None.
+    """
+    stichtag_treffer = STICHTAG_MUSTER.search(pdf_text or "")
+    stichtag = (
+        datetime.strptime(stichtag_treffer.group(1), "%d.%m.%Y").date()
+        if stichtag_treffer
+        else None
+    )
+    konten = []
+    total = None
+    abschnitt = None
+    for zeile in (pdf_text or "").splitlines():
+        zellen = _zellen(zeile)
+        if not zellen:
+            continue
+        if len(zellen) == 1:
+            neuer_abschnitt = _erkenne_abschnitt(zellen[0])
+            if neuer_abschnitt is not None:
+                abschnitt = neuer_abschnitt
+                continue
+        if abschnitt != "Liquidität":
+            continue
+
+        if zellen[0].strip().casefold().startswith("total"):
+            zahlen = [parse_zahl(z) for z in zellen[1:] if _ist_zahl(z)]
+            # "Total Liquiditaet | Bewertung CHF | %"
+            if len(zahlen) >= 2:
+                total = zahlen[-2]
+            elif zahlen:
+                total = zahlen[0]
+            continue
+
+        index = next(
+            (i for i, z in enumerate(zellen) if _KONTO_BESCHREIBUNG.search(z.strip())),
+            None,
+        )
+        if index is None:
+            continue
+        beschreibung = zellen[index].strip()
+        waehrung = _KONTO_BESCHREIBUNG.search(beschreibung).group(1)
+        zahlen = [parse_zahl(z) for z in zellen[index + 1 :] if _ist_zahl(z)]
+        if len(zahlen) < 3:
+            continue
+        konten.append(
+            {
+                # Steht in der Beschreibung je eine Ziffer, koennte es eine
+                # Kontonummer sein; dann nur die Waehrung nennen.
+                "Konto": "Konto " + waehrung
+                if re.search(r"\d", beschreibung)
+                else beschreibung,
+                "Waehrung": waehrung,
+                "Saldo": zahlen[0],
+                "Wechselkurs": zahlen[1],
+                "Saldo_CHF": zahlen[2],
+                "Stichtag": stichtag,
+            }
+        )
+    return konten, total
+
+
 def _erkenne_abschnitt(text):
     kandidat = text.strip()
     for muster, name in ABSCHNITT_MUSTER:
@@ -746,6 +819,7 @@ def dq_checks(abgleich, uebersicht, hinweise=None):
     t2 = sum(1 for zeile in uebersicht if zeile["q_Kategorisierung"] != "OK")
     t3 = int(hinweise.get("ohne_waehrung", 0))
     t4 = int(hinweise.get("datum_unlesbar", 0))
+    t5 = int(hinweise.get("konten_differenz", 0))
 
     # "Hinweis" statt "Fehler", wo der Befund erwartbar ist und nur gesehen
     # werden muss: Zeilen ohne Waehrung sind meist echte Stornos, aber der
@@ -755,6 +829,7 @@ def dq_checks(abgleich, uebersicht, hinweise=None):
         ("Regel für jede Buchungsart", t2, "Fehler"),
         ("Zeilen ohne Währung verworfen", t3, "Hinweis"),
         ("Datum lesbar", t4, "Fehler"),
+        ("Kontosaldi ergeben Total Liquidität", t5, "Fehler"),
     ]
     return [
         {
@@ -1019,6 +1094,14 @@ def auswerten(csv_rohdaten, anfangs_pdf_text, end_pdf_text, regeln=None):
     wv, wv_buchungen = wertschriftenverzeichnis(bestand, uebersicht)
     depotgebuehren = gebuehren(verworfen, stichtag_anfang, stichtag_ende)
     zinsen = kontozinsen(uebersicht)
+    konten, total_liquiditaet = lies_konten(end_pdf_text)
+    if total_liquiditaet is not None:
+        summe = sum((k["Saldo_CHF"] for k in konten), Decimal(0))
+        # Jede Zeile ist auf Rappen gerundet; mehr als ein paar Rappen
+        # Abweichung heisst, dass eine Zeile nicht gelesen wurde.
+        hinweise["konten_differenz"] = int(
+            abs(summe - total_liquiditaet) > Decimal("0.05")
+        )
 
     return {
         "hinweise": hinweise,
@@ -1034,6 +1117,7 @@ def auswerten(csv_rohdaten, anfangs_pdf_text, end_pdf_text, regeln=None):
         "dq_checks": dq_checks(abgleich, uebersicht, hinweise),
         "wertschriftenverzeichnis": wv,
         "wv_buchungen": wv_buchungen,
+        "konten": konten,
         "gebuehren": depotgebuehren,
         "gebuehren_summen": summen(depotgebuehren),
         "kontozinsen": zinsen,

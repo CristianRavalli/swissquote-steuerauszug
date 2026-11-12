@@ -241,6 +241,13 @@ def rendere_alle_buchungen():
 
 
 def rendere_konten(ergebnis):
+    konten = ergebnis["konten"]
+    rendere_tabelle("#konten", konten, pipeline.KONTO_SPALTEN, None, "#konten-leer")
+    if not konten:
+        document.querySelector("#konten-leer").textContent = (
+            "Im PDF mit dem Endbestand steht kein Abschnitt «Liquidität»."
+        )
+    _zeige_anzahl("#konten-anzahl", len(konten), len(konten))
     for name, spalten in (
         ("kontozinsen", pipeline.KONTOZINS_SPALTEN),
         ("gebuehren", pipeline.GEBUEHR_SPALTEN),
@@ -298,6 +305,7 @@ def setze_downloads_aktiv(aktiv):
         "#download-verworfen",
         "#download-wv",
         "#download-wv-buchungen",
+        "#download-konten",
         "#download-kontozinsen",
         "#download-gebuehren",
     ):
@@ -591,6 +599,17 @@ def download_wv_buchungen(event):
     lade_herunter(
         pipeline.als_csv(ergebnis["wv_buchungen"], pipeline.WV_BUCHUNG_SPALTEN),
         f"wertschriften-buchungen-{_jahr()}.csv",
+    )
+
+
+@when("click", "#download-konten")
+def download_konten(event):
+    ergebnis = zustand["ergebnis"]
+    if ergebnis is None:
+        return
+    lade_herunter(
+        pipeline.als_csv(ergebnis["konten"], pipeline.KONTO_SPALTEN),
+        f"kontosaldi-{_jahr()}.csv",
     )
 
 

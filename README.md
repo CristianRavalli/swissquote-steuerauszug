@@ -103,10 +103,10 @@ Buchungen».
 
 ### Cash-Konten
 
-Der Abschnitt «Liquidität» des PDF wird übersprungen, wie in der Mappe.
-Cash-Konten gehören nicht in den Stückzahlen-Abgleich. Ihre Zinsen stehen
-unter «Kontozinsen und Depotgebühren»; die Saldi am Stichtag liefert die
-Anwendung noch nicht.
+Für den Abgleich wird der Abschnitt «Liquidität» des PDF übersprungen, wie in der Mappe.
+Cash-Konten gehören nicht in den Stückzahlen-Abgleich. Ihren Saldo am
+Stichtag Ende und ihre Zinsen zeigt der Abschnitt «Cash-Konten, Zinsen und
+Depotgebühren».
 
 ### Positionen, die in keinem PDF stehen
 
@@ -120,8 +120,9 @@ sieht dort aus wie eine Aktie —, und geraten wird nicht.
 
 ### Abweichungen von der Mappe
 
-Zwei zusätzliche Prüfungen: verworfene Zeilen ohne Währung (als Hinweis) und
-nicht lesbare Datumswerte.
+Drei zusätzliche Prüfungen: verworfene Zeilen ohne Währung (als Hinweis),
+nicht lesbare Datumswerte und die Summe der Kontosaldi gegen «Total
+Liquidität».
 
 ## Grundlage für das Wertschriftenverzeichnis (Stufe B)
 
@@ -149,9 +150,16 @@ Steuerwerte, Erträge und die Verrechnungssteuer-Pflicht kommen aus der
 Kursliste der ESTV. Die Liste zeigt nur, was im Wertschriftenverzeichnis zu
 erfassen ist. Cash-Konten sind nicht enthalten.
 
-## Kontozinsen und Depotgebühren
+## Cash-Konten, Zinsen und Depotgebühren
 
-Zwei weitere Listen der Periode, je mit Summe pro Buchungsart und Währung:
+- **Saldo am Stichtag Ende**: je Konto Saldo in Kontowährung, Wechselkurs
+  und Saldo in CHF aus dem Abschnitt «Liquidität» des PDF mit dem
+  Endbestand. Die Spalte «Referenz» (Kontonummer) wird nicht übernommen.
+  Der Prüfschritt «Kontosaldi ergeben Total Liquidität» vergleicht die
+  Summe mit der Zeile «Total Liquidität» und fällt auf, wenn eine Zeile
+  nicht gelesen wurde.
+
+Dazu zwei Listen der Periode, je mit Summe pro Buchungsart und Währung:
 
 - **Kontozinsen**: `Zinsen auf Einlagen` und `Zinsen auf Belastungen`, also
   alle Buchungen ohne Wertschrift, die nicht als `Ignorieren` eingestuft
@@ -164,8 +172,9 @@ Zwei weitere Listen der Periode, je mit Summe pro Buchungsart und Währung:
   (`Berichtigung Börsengeb.`) gehören zu den Kauf- und Verkaufsbuchungen und
   stehen nicht in der Liste.
 
-Die Power-Query-Mappe kennt diese Listen nicht. Abgleich und verworfene
-Buchungen bleiben deshalb gleich wie dort.
+Den Saldo liefert in der Mappe die Abfrage `Konten_Endb`. Zinsen und
+Gebühren kennt die Mappe nicht; Abgleich und verworfene Buchungen bleiben
+deshalb gleich wie dort.
 
 ### Was die Anwendung nicht liefert
 
@@ -199,5 +208,6 @@ Bestände, Transaktionen und Salden sowie die Kontonummer in den
 Parameter-Vorgaben.
 
 Die Verarbeitung erfolgt lokal im Browser; aus dem Internet geladen werden nur
-PyScript und `pypdf`. Der Abschnitt «Liquidität» des PDF mit Kontoreferenzen
-und Salden wird beim Parsen übersprungen und nicht exportiert.
+PyScript und `pypdf`. Aus dem Abschnitt «Liquidität» des PDF übernimmt die
+Anwendung nur Währung, Saldo, Wechselkurs und Saldo in CHF. Die
+Kontoreferenz wird weder angezeigt noch exportiert.

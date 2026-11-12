@@ -569,3 +569,49 @@ class TestGebuehrenUndKontozinsen(unittest.TestCase):
     def test_keine_kontoreferenz_in_den_kontozinsen(self):
         csv_text = pipeline.als_csv(self.ergebnis["kontozinsen"], pipeline.KONTOZINS_SPALTEN)
         self.assertNotIn("9999", csv_text)
+
+
+class TestKontosaldi(unittest.TestCase):
+    def setUp(self):
+        self.ergebnis = pipeline.auswerten(
+            beispieldaten.beispiel_csv(),
+            beispieldaten.beispiel_anfangsbestand(),
+            beispieldaten.beispiel_endbestand(),
+        )
+
+    def test_saldo_je_konto_am_stichtag_ende(self):
+        self.assertEqual(
+            [
+                (k["Konto"], k["Waehrung"], k["Saldo"], k["Wechselkurs"], k["Saldo_CHF"], k["Stichtag"])
+                for k in self.ergebnis["konten"]
+            ],
+            [
+                ("Kontokorrent (CHF)", "CHF", Decimal("1200"), Decimal("1"), Decimal("1200"), date(2025, 12, 31)),
+                ("Kontokorrent (USD)", "USD", Decimal("1000"), Decimal("0.8"), Decimal("800"), date(2025, 12, 31)),
+            ],
+        )
+
+    def test_keine_kontonummer(self):
+        csv_text = pipeline.als_csv(self.ergebnis["konten"], pipeline.KONTO_SPALTEN)
+        self.assertNotIn("123456789", csv_text)
+        self.assertNotIn("123456790", csv_text)
+
+    def test_summe_ergibt_total_liquiditaet(self):
+        checks = _als_dict(self.ergebnis["dq_checks"], "Test", "Ergebnis")
+        self.assertEqual(checks["Kontosaldi ergeben Total Liquidität"], "OK")
+
+    def test_fehlende_kontozeile_faellt_auf(self):
+        text = beispieldaten.beispiel_endbestand()
+        ohne_usd = "\n".join(z for z in text.splitlines() if "Kontokorrent (USD)" not in z)
+        ergebnis = pipeline.auswerten(
+            beispieldaten.beispiel_csv(), beispieldaten.beispiel_anfangsbestand(), ohne_usd
+        )
+        checks = _als_dict(ergebnis["dq_checks"], "Test", "Ergebnis")
+        self.assertEqual(checks["Kontosaldi ergeben Total Liquidität"], "Fehler")
+
+    def test_beschreibung_mit_ziffern_wird_nicht_gezeigt(self):
+        text = beispieldaten.beispiel_endbestand().replace(
+            "Kontokorrent (CHF)", "Konto 98765 (CHF)"
+        )
+        konten, _ = pipeline.lies_konten(text)
+        self.assertEqual(konten[0]["Konto"], "Konto CHF")

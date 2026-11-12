@@ -21,6 +21,8 @@ PDF
   * "Total ..." Zeilen und Fusszeilen
 """
 
+from decimal import Decimal
+
 ANFANGS_STICHTAG = "31.12.2024"
 END_STICHTAG = "31.12.2025"
 
@@ -140,19 +142,27 @@ def beispiel_pdf_text(stichtag, liquiditaet, krypto, aktien, fonds):
             "%",
         )
     )
-    for waehrung, referenz, beschreibung, betrag in liquiditaet:
+    total_chf = Decimal(0)
+    for eintrag in liquiditaet:
+        # (Waehrung, Referenz, Beschreibung, Wert[, Wechselkurs, Bewertung CHF])
+        waehrung, referenz, beschreibung, betrag = eintrag[:4]
+        kurs = eintrag[4] if len(eintrag) > 4 else "1.00000"
+        chf = eintrag[5] if len(eintrag) > 5 else betrag
+        total_chf += Decimal(chf.replace("'", ""))
         zeilen.append(
             _spalten(
                 "             " + waehrung,
                 referenz,
                 beschreibung,
                 betrag,
-                "1.00000",
-                betrag,
+                kurs,
+                chf,
                 "24.00",
             )
         )
-    zeilen.append(_spalten("                    Total Liquidität", "1'200.00", "24.00"))
+    zeilen.append(
+        _spalten("                    Total Liquidität", f"{total_chf:,.2f}".replace(",", "'"), "24.00")
+    )
 
     zeilen.append("Kryptowährungen")
     zeilen.append(
@@ -269,7 +279,10 @@ def beispiel_anfangsbestand():
 def beispiel_endbestand():
     return beispiel_pdf_text(
         END_STICHTAG,
-        liquiditaet=[("CHF", "123456789", "Kontokorrent (CHF)", "1'200.00")],
+        liquiditaet=[
+            ("CHF", "123456789", "Kontokorrent (CHF)", "1'200.00"),
+            ("USD", "123456790", "Kontokorrent (USD)", "1'000.00", "0.80000", "800.00"),
+        ],
         krypto=[("SOL", "2.00000000")],
         # BETA ist verkauft und steht nicht mehr im Endbestand.
         aktien=[("15", "ALPHA CORP", "US0000000001")],

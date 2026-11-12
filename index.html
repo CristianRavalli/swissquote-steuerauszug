@@ -500,15 +500,34 @@
       </section>
 
       <section class="panel" aria-labelledby="konten-titel">
-        <h2 id="konten-titel">Kontozinsen und Depotgebühren</h2>
+        <h2 id="konten-titel">Cash-Konten, Zinsen und Depotgebühren</h2>
         <p class="hinweis">
-          Buchungen der Periode auf den Cash-Konten, ohne steuerliche Wertung.
+          Der Saldo je Konto stammt aus dem Abschnitt «Liquidität» des PDF mit
+          dem Endbestand. Zinsen und Gebühren sind Buchungen der Periode aus
+          der CSV, ohne steuerliche Wertung.
           Zinsen am Monatsersten zählen zum Vortag, wie in
           <code>tbl_regeln</code>. Depotgebühren, die im Januar belastet
           werden, gelten für das Vorjahr. Börsengebühren sind Teil der
           Kauf- und Verkaufsbuchungen und stehen hier nicht. Die Konten heissen
           nur nach ihrer Währung; Kontonummern zeigt die Seite nicht.
         </p>
+        <h3>Saldo am Stichtag Ende <span class="anzahl" id="konten-anzahl"></span></h3>
+        <div class="tabelle-rahmen">
+          <table>
+            <thead>
+              <tr>
+                <th>Konto</th>
+                <th>Währung</th>
+                <th>Saldo</th>
+                <th>Wechselkurs</th>
+                <th>Saldo CHF</th>
+                <th>Stichtag</th>
+              </tr>
+            </thead>
+            <tbody id="konten"></tbody>
+          </table>
+        </div>
+        <p class="leer" id="konten-leer">Noch keine Auswertung.</p>
         <h3>Kontozinsen <span class="anzahl" id="kontozinsen-anzahl"></span></h3>
         <div class="tabelle-rahmen">
           <table class="summen">
@@ -569,6 +588,9 @@
           </table>
         </div>
         <div class="aktionen">
+          <button id="download-konten" type="button" disabled>
+            Kontosaldi herunterladen
+          </button>
           <button id="download-kontozinsen" type="button" disabled>
             Kontozinsen herunterladen
           </button>
